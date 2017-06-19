@@ -1,0 +1,15 @@
+/var/log/radiance/*.log {
+        daily
+        missingok
+        rotate 52
+        compress
+        delaycompress
+        notifempty
+        create 640 root root
+        sharedscripts
+        postrotate
+                if [ -f /var/run/radiance.pid ]; then
+                        kill -HUP `cat /var/run/radiance.pid`
+                fi
+        endscript
+}

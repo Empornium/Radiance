@@ -1,0 +1,104 @@
+#!/bin/sh
+#
+# radiance        Startup script for radiance
+#
+# chkconfig: - 85 15
+# processname: radiance
+# config: /etc/radiance.conf
+# pidfile: /var/run/radiance.pid
+# description: radiance is an HTTP BitTorrent tracker
+#
+### BEGIN INIT INFO
+# Provides: radiance
+# Required-Start: $local_fs $remote_fs $network mysql
+# Required-Stop: $local_fs $remote_fs $network mysql
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: start and stop radiance
+### END INIT INFO
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+if [ -L $0 ]; then
+    initscript=`/bin/readlink -f $0`
+else
+    initscript=$0
+fi
+
+sysconfig=`/bin/basename $initscript`
+
+if [ -f /etc/sysconfig/$sysconfig ]; then
+    . /etc/sysconfig/$sysconfig
+fi
+
+radiance=${RADIANCE-/usr/sbin/radiance}
+prog=`/bin/basename $radiance`
+conffile=${CONFFILE-/etc/radiance.conf}
+lockfile=${LOCKFILE-/var/lock/subsys/radiance}
+pidfile=${PIDFILE-/var/run/radiance.pid}
+SLEEPMSEC=${SLEEPMSEC-200000}
+UPGRADEWAITLOOPS=${UPGRADEWAITLOOPS-5}
+RETVAL=0
+
+start() {
+    echo -n $"Starting $prog: "
+
+    daemon --pidfile=${pidfile} ${radiance} -d -c ${conffile}
+    RETVAL=$?
+    echo
+    [ $RETVAL = 0 ] && touch ${lockfile}
+    return $RETVAL
+}
+
+stop() {
+    echo -n $"Stopping $prog: "
+    killproc -p ${pidfile} ${prog}
+    RETVAL=$?
+    echo
+    [ $RETVAL = 0 ] && rm -f ${lockfile} ${pidfile}
+}
+
+reload() {
+    echo -n $"Reloading $prog: "
+    killproc -p ${pidfile} ${prog} -HUP
+    RETVAL=$?
+    echo
+}
+
+rh_status() {
+    status -p ${pidfile} -b ${radiance} ${radiance}
+}
+
+# See how we were called.
+case "$1" in
+    start)
+        rh_status >/dev/null 2>&1 && exit 0
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        rh_status
+        RETVAL=$?
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    condrestart|try-restart)
+        if rh_status >/dev/null 2>&1; then
+            stop
+            start
+        fi
+        ;;
+    force-reload|reload)
+        reload
+        ;;
+    *)
+        echo $"Usage: $prog {start|stop|restart|condrestart|try-restart|force-reload|reload|status|help}"
+        RETVAL=2
+esac
+
+exit $RETVAL

@@ -1,0 +1,20 @@
+[Unit]
+Description=Radiance Bittorrent Tracker
+After=network.target
+After=mysqld.service
+Requires=network.target
+Requires=mysqld.service
+
+[Service]
+Type=forking
+TimeoutStartSec=0
+ExecStart=/usr/sbin/radiance -d -c /etc/radiance.conf
+ExecReload=/bin/kill -HUP $MAINPID
+PIDFile=/var/run/radiance.pid
+RestartSec=20
+TimeoutStopSec=60
+TimeoutStartSec=360
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

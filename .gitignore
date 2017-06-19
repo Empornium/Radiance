@@ -1,0 +1,15 @@
+*.o
+*.pyc
+.deps
+aclocal.m4
+autom4te.cache
+config.sub
+config.guess
+config.log
+config.status
+configure
+Makefile
+Makefile.in
+radiance.conf
+radiance
+debug.log
