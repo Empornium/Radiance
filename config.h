@@ -131,7 +131,7 @@
 #define PACKAGE_NAME "radiance"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "radiance 1.1"
+#define PACKAGE_STRING "radiance 1.1.2"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "radiance"
@@ -140,7 +140,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "1.1"
+#define PACKAGE_VERSION "1.1.2"
 
 /* Define to necessary symbol if this constant uses a non-standard name on
    your system. */
@@ -160,7 +160,7 @@
 /* #undef _UINT64_T */
 
 /* enable debug build */
-#define __DEBUG_BUILD__ /**/
+/* #undef __DEBUG_BUILD__ */
 
 /* Link/compile against jemalloc */
 /* #undef has_jemalloc */

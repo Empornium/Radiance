@@ -46,6 +46,8 @@ class worker {
 		peer_list::iterator add_peer(peer_list &peer_list, const std::string &peer_id);
 		static inline bool peer_is_visible(user_ptr &u, peer *p);
 		std::string get_host(params_type &headers);
+		std::string bencode_int(int data);
+		std::string bencode_str(std::string data);
 
 	public:
 		worker(torrent_list &torrents, user_list &users, domain_list &domains, std::vector<std::string> &_blacklist, mysql * db_obj, site_comm * sc);

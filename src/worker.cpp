@@ -317,18 +317,21 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 	bool update_torrent = false; // Whether or not we should update the torrent in the DB
 	bool completed_torrent = false; // Whether or not the current announcement is a snatch
 	bool stopped_torrent = false; // Was the torrent just stopped?
+	bool paused_torrent = false; // Has the peer stopped downloading?
 	bool expire_token = false; // Whether or not to expire a token after torrent completion
 	bool peer_changed = false; // Whether or not the peer is new or has changed since the last announcement
 	bool inc_l = false, inc_s = false, dec_l = false, dec_s = false;
 	bool sitewide_freeleech = false;
 	bool sitewide_doubleseed = false;
 	userid_t userid = u->get_id();
-	std::string ipv4 = "", ipv6 = "";
+	std::string ipv4 = "", ipv6 = "", public_ipv4 = "", public_ipv6 = "";
 
 	if (ip_ver == 4){
 		ipv4=ip;
+		public_ipv4=ip;
 	} else {
 		ipv6=ip;
+		public_ipv6=ip;
 	}
 
 	time_t now;
@@ -440,6 +443,17 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 	int64_t real_uploaded_change = 0;
 	int64_t real_downloaded_change = 0;
 	int64_t max_allowed_bytes_transferred = 999999999999999;
+	if (params["event"] == "paused") paused_torrent = true;
+
+	if (paused_torrent != p->paused) {
+		// Account for paused peers
+		p->paused = paused_torrent;
+		if (paused_torrent) {
+			tor.paused++;
+		} else {
+			tor.paused--;
+		}
+	}
 
 	if (inserted || params["event"] == "started") {
 		// New peer on this torrent (maybe)
@@ -570,8 +584,10 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 		getaddrinfo(ip.c_str(), NULL, &hint, &res);
 		if(res->ai_family == AF_INET) {
 			ipv4 = ip;
+			public_ipv4=ip;
 		} else if (res->ai_family == AF_INET6) {
 			ipv6 = ip;
+			public_ipv6=ip;
 		}
 		freeaddrinfo(res);
 	}
@@ -590,6 +606,16 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 			ipv4.clear();
 		}
 	}
+	struct sockaddr_in public_sa;
+	if(inet_pton(AF_INET, hex_decode(public_ipv4).c_str(), &(public_sa.sin_addr)) != -1 && !public_ipv4.empty()){
+		// IP is 4 bytes for IPv4
+		if (ipv4_is_public(public_sa.sin_addr)) {
+			public_ipv4.assign(reinterpret_cast<const char*>(&public_sa.sin_addr.s_addr), 4);
+		} else {
+			syslog(trace) << "Rejecting IP: " << hex_decode(public_ipv4);
+			public_ipv4.clear();
+		}
+	}
 	struct sockaddr_in6 sa6;
 	if(inet_pton(AF_INET6, hex_decode(ipv6).c_str(), &(sa6.sin6_addr)) != -1 && !ipv6.empty()){
 		// IP is 16 bytes for IPv6
@@ -598,6 +624,16 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 		} else {
 			syslog(trace) << "Rejecting IP: " << hex_decode(ipv6);
 			ipv6.clear();
+		}
+	}
+	struct sockaddr_in6 public_sa6;
+	if(inet_pton(AF_INET6, hex_decode(public_ipv6).c_str(), &(public_sa6.sin6_addr)) != -1 && !public_ipv6.empty()){
+		// IP is 16 bytes for IPv6
+		if (ipv6_is_public(public_sa6.sin6_addr)) {
+			public_ipv6.assign(reinterpret_cast<const char*>(&public_sa6.sin6_addr.s6_addr), 16);
+		} else {
+			syslog(trace) << "Rejecting IP: " << hex_decode(public_ipv6);
+			public_ipv6.clear();
 		}
 	}
 
@@ -899,32 +935,25 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 
 	// Bit torrent spec mandates that the keys are sorted.
 
-	std::string output = "d8:completei";
+	std::string output = "d";
 	output.reserve(350);
-	output += inttostr(tor.seeders.size());
-	output += "e10:downloadedi";
-	output += inttostr(tor.completed);
-	output += "e10:incompletei";
-	output += inttostr(tor.leechers.size());
-	output += "e8:intervali";
-	output += inttostr(announce_interval + std::min((size_t)600, tor.seeders.size())); // ensure a more even distribution of announces/second
-	output += "e12:min intervali";
-	output += inttostr(announce_interval);
-	output += "e5:peers";
-	if (peers.empty()) {
-		output += "0:";
-	} else {
-		output += inttostr(peers.length());
-		output += ":";
-		output += peers;
+	output += bencode_str("complete")   + bencode_int(tor.seeders.size());
+	output += bencode_str("downloaded") + bencode_int(tor.completed);
+
+	if (!public_ipv6.empty()) {
+		output += bencode_str("external ip") + bencode_str(public_ipv6);
+	} else 	if (!public_ipv4.empty()) {
+		output += bencode_str("external ip") + bencode_str(public_ipv4);
 	}
-	if (!peers6.empty()) {
-		output += "e6:peers6";
-		output += inttostr(peers6.length());
-		output += ":";
-		output += peers6;
-	}
-	output += 'e';
+
+	output += bencode_str("incomplete")   + bencode_int(tor.leechers.size());
+	output += bencode_str("interval")     + bencode_int(announce_interval + std::min((size_t)600, tor.seeders.size())); // ensure a more even distribution of announces/second
+	output += bencode_str("min interval") + bencode_int(announce_interval);
+	output += bencode_str("peers") + bencode_str(peers);
+
+	if (!peers6.empty())
+			output += bencode_str("peers6") + bencode_str(peers6);
+	output += "e";
 
 	/* gzip compression actually makes announce returns larger from our
 	 * testing. Feel free to enable this here if you'd like but be aware of
@@ -937,7 +966,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 }
 
 std::string worker::scrape(const std::list<std::string> &infohashes, params_type &headers, client_opts_t &client_opts) {
-	std::string output = "d5:filesd";
+	std::string output = "d" + bencode_str("files") + "d";
 	for (std::list<std::string>::const_iterator i = infohashes.begin(); i != infohashes.end(); ++i) {
 		std::string infohash = *i;
 		infohash = hex_decode(infohash);
@@ -949,16 +978,13 @@ std::string worker::scrape(const std::list<std::string> &infohashes, params_type
 		}
 		torrent *t = &(tor->second);
 
-		output += inttostr(infohash.length());
-		output += ':';
-		output += infohash;
-		output += "d8:completei";
-		output += inttostr(t->seeders.size());
-		output += "e10:downloadedi";
-		output += inttostr(t->completed);
-		output += "e10:incompletei";
-		output += inttostr(t->leechers.size());
-		output += "ee";
+		output += bencode_str(infohash);
+		output += "d";
+		output += bencode_str("complete")    + bencode_int(t->seeders.size());
+		output += bencode_str("downloaded")  + bencode_int(t->completed);
+		output += bencode_str("incomplete")  + bencode_int(t->leechers.size());
+		output += bencode_str("downloaders") + bencode_int(t->leechers.size() - t->paused);
+		output += "e";
 	}
 	output += "ee";
 	if (headers["accept-encoding"].find("gzip") != std::string::npos) {
@@ -1237,9 +1263,9 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
 			peer_id_iterator = params.find("visible");
 			if (peer_id_iterator != params.end()) {
 				if (params["visible"] == "0") {
-					protect_ip = false;
-				} else {
 					protect_ip = true;
+				} else {
+					protect_ip = false;
 				}
 				i->second->set_protected(protect_ip);
 			}
@@ -1535,6 +1561,20 @@ std::string worker::get_host(params_type &headers){
 		host = head_itr->second;
 
 	return trim(host);
+}
+
+std::string worker::bencode_int(int data) {
+	std::string bencoded_int = "i";
+	bencoded_int += inttostr(data);
+	bencoded_int += "e";
+	return bencoded_int;
+}
+
+std::string worker::bencode_str(std::string data) {
+	std::string bencoded_str = inttostr(data.size());
+	bencoded_str += ":";
+	bencoded_str += data;
+	return bencoded_str;
 }
 
 #if(__DEBUG_BUILD__)

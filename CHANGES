@@ -1,3 +1,7 @@
+-- 1.1.2 (2017-07-03)
+Add support for BEP21 and BEP24 (http://www.bittorrent.org/beps/bep_0000.html)
+Fix bug in protected status updates
+
 -- 1.1 (2017-06-19)
 **RENAMED TO RADIANCE**
 NOTE: This version requires the following database changes:

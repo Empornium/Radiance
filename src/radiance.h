@@ -36,6 +36,7 @@ typedef struct {
 	uint32_t announces;
 	uint16_t port;
 	bool visible;
+	bool paused;
 	user_ptr user;
 	domain_ptr domain;
 	std::string ipv4;
@@ -58,6 +59,7 @@ typedef std::map<int, slots_t> slots_list;
 typedef struct {
 	torid_t id;
 	uint32_t completed;
+	uint32_t paused;
 	int64_t balance;
 	freetype free_torrent;
 	freetype double_torrent;

@@ -4,6 +4,7 @@
 #include <boost/iostreams/filter/gzip.hpp>
 #include "response.h"
 #include "misc_functions.h"
+#include "../config.h" // Used to fetch PACKAGE_VERSION string
 
 const std::string response(const std::string &body, client_opts_t &client_opts, uint16_t response) {
 	std::string out;
@@ -50,7 +51,7 @@ const std::string response_head(size_t content_length, client_opts_t &client_opt
 	content_type = client_opts.html ? "text/html" : content_type;
 	content_type = client_opts.json ? "application/json" : content_type;
 	if (response == 900) reason = get_reason(response);
-	std::string head = "HTTP/1.1 " + std::to_string(response) + " " + reason +"\r\nServer: Radiance 1.1";
+	std::string head = "HTTP/1.1 " + std::to_string(response) + " " + reason +"\r\nServer: Radiance "+PACKAGE_VERSION;
 	head += "\r\nContent-Type: " + content_type;
 	if (client_opts.gzip) {
 		head += "\r\nContent-Encoding: gzip";
