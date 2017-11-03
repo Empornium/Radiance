@@ -1591,7 +1591,7 @@ bool worker::ipv4_is_public(in_addr addr){
 	if ((ntohl(addr.s_addr) & 0xff000000) == 0x0a000000) return false; // 10.0.0.0/8
 	if ((ntohl(addr.s_addr) & 0xfff00000) == 0xac100000) return false; // 172.16.0.0/12
 	if ((ntohl(addr.s_addr) & 0xffff0000) == 0xc0a80000) return false; // 192.168.0.0/16
-	if ((ntohl(addr.s_addr) & 0xff000000) == 0xa9fe0000) return false; // 169.254.0.0/16
+	if ((ntohl(addr.s_addr) & 0xffff0000) == 0xa9fe0000) return false; // 169.254.0.0/16
 	if ((ntohl(addr.s_addr) & 0xffc00000) == 0x64400000) return false; // 100.64.0.0/10
 	if ((ntohl(addr.s_addr) & 0xff000000) == 0x7f000000) return false; // 127.0.0.0/8
 	return true;
