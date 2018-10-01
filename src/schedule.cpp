@@ -4,6 +4,7 @@
 #include "config.h"
 #include "db.h"
 #include "worker.h"
+#include "logger.h"
 #include "schedule.h"
 
 schedule::schedule(worker * worker_obj, mysql * db_obj, site_comm * sc_obj) : work(worker_obj), db(db_obj), sc(sc_obj) {
@@ -68,4 +69,6 @@ void schedule::handle(ev::timer &watcher, int events_flags) {
 	if (schedule_interval != cur_schedule_interval) {
 		watcher.set(schedule_interval, schedule_interval);
 	}
+
+	flush_log();
 }

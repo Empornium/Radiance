@@ -31,5 +31,7 @@ enum severity_level
 #define syslog(lvl) BOOST_LOG_TRIVIAL(lvl)
 
 void init_log(void);
+void rotate_log(void);
+void flush_log(void);
 
 #endif

@@ -15,7 +15,7 @@
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE IF NOT EXTISTS `torrents` (
+CREATE TABLE IF NOT EXISTS `torrents` (
   `ID` int(10) NOT NULL AUTO_INCREMENT,
   `GroupID` int(10) NOT NULL,
   `UserID` int(10) DEFAULT NULL,
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXTISTS `torrents` (
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE IF NOT EXTISTS `users_slots` (
+CREATE TABLE IF NOT EXISTS `users_slots` (
   `UserID` int(11) NOT NULL,
   `TorrentID` int(11) NOT NULL,
   `FreeLeech` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXTISTS `users_slots` (
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE IF NOT EXTISTS `users_freeleeches` (
+CREATE TABLE IF NOT EXISTS `users_freeleeches` (
   `UserID` int(11) NOT NULL,
   `TorrentID` int(11) NOT NULL,
   `Downloaded` bigint(20) unsigned NOT NULL DEFAULT '0',
@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXTISTS `users_freeleeches` (
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE IF NOT EXTISTS `users_main` (
+CREATE TABLE IF NOT EXISTS `users_main` (
   `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `Username` varchar(30) NOT NULL,
   `Email` varchar(255) NOT NULL,
@@ -162,7 +162,7 @@ CREATE TABLE IF NOT EXTISTS `users_main` (
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE IF NOT EXTISTS `xbt_client_blacklist` (
+CREATE TABLE IF NOT EXISTS `xbt_client_blacklist` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `peer_id` varchar(20) DEFAULT NULL,
   `vstring` varchar(200) DEFAULT '',
@@ -177,7 +177,7 @@ CREATE TABLE IF NOT EXTISTS `xbt_client_blacklist` (
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE IF NOT EXTISTS `xbt_files_users` (
+CREATE TABLE IF NOT EXISTS `xbt_files_users` (
   `uid` int(11) NOT NULL,
   `active` tinyint(1) NOT NULL,
   `announced` int(11) NOT NULL,
@@ -214,7 +214,7 @@ CREATE TABLE IF NOT EXTISTS `xbt_files_users` (
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE IF NOT EXTISTS `xbt_snatched` (
+CREATE TABLE IF NOT EXISTS `xbt_snatched` (
   `uid` int(11) NOT NULL DEFAULT '0',
   `tstamp` int(11) NOT NULL,
   `fid` int(11) NOT NULL,
@@ -232,7 +232,7 @@ CREATE TABLE IF NOT EXTISTS `xbt_snatched` (
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE IF NOT EXTISTS `xbt_peers_history` (
+CREATE TABLE IF NOT EXISTS `xbt_peers_history` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `uid` int(11) NOT NULL,
   `downloaded` bigint(20) NOT NULL,
@@ -260,7 +260,7 @@ CREATE TABLE IF NOT EXTISTS `xbt_peers_history` (
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE IF NOT EXTISTS `options` (
+CREATE TABLE IF NOT EXISTS `options` (
   `Name` varchar(255) NOT NULL,
   `Value` text NOT NULL,
   PRIMARY KEY (`Name`)

@@ -181,7 +181,7 @@ void mysql::load_torrents(torrent_list &torrents) {
 }
 
 void mysql::load_users(user_list &users) {
-	mysqlpp::Query query = conn.query("SELECT ID, can_leech, torrent_pass, (Visible='0' OR IP='127.0.0.1') AS Protected, track_ipv6, personal_freeleech, personal_doubleseed FROM users_main WHERE Enabled='1'");
+	mysqlpp::Query query = conn.query("SELECT um.ID, can_leech, torrent_pass, (Visible='0' OR u.IPID IS NULL) AS Protected, track_ipv6, personal_freeleech, personal_doubleseed FROM users_main AS um JOIN users AS u ON um.ID=u.ID WHERE Enabled='1'");
 	try {
 		mysqlpp::StoreQueryResult res = query.store();
 		size_t num_rows = res.num_rows();
@@ -579,6 +579,9 @@ void mysql::flush_users() {
 	if (update_user_buffer == "") {
 		return;
 	}
+	// Similar to flush_torrents this can actually insert a new user entry into the DB.
+	// IT SHOULDN'T! And we shouldn't be deleting users either. This needs to change to
+	// an UPDATE transaction.
 	sql = "INSERT INTO users_main (ID, Uploaded, Downloaded, UploadedDaily, DownloadedDaily) VALUES " + update_user_buffer +
 		" ON DUPLICATE KEY UPDATE" +
 		" Uploaded = Uploaded + VALUES(Uploaded)," +
@@ -608,6 +611,9 @@ void mysql::flush_torrents() {
 	if (update_torrent_buffer == "") {
 		return;
 	}
+
+	// This massive hack is because we can reinsert a deleted torrent. Tracker shouldn't
+	// be inserting at all, it should be using updates and transactions.
 	sql = "INSERT INTO torrents (ID,Seeders,Leechers,Snatched,Balance) VALUES " + update_torrent_buffer +
 		" ON DUPLICATE KEY UPDATE Seeders=VALUES(Seeders), Leechers=VALUES(Leechers), " +
 		"Snatched=Snatched+VALUES(Snatched), Balance=VALUES(Balance), last_action = " +

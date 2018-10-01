@@ -898,6 +898,50 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 			p->user->decr_seeding();
 			stats.seeders--;
 		}
+		if (inc_l || inc_s) {
+			if(!p->ipv6.empty()){
+				char str[INET6_ADDRSTRLEN];
+				struct sockaddr_in6 sa6;
+				inet_ntop(AF_INET6, p->ipv6.c_str(), str, INET6_ADDRSTRLEN);
+				inet_pton(AF_INET6, str, &(sa6.sin6_addr));
+				if (ipv6_is_public(sa6.sin6_addr)) {
+					stats.ipv6_peers++;
+					syslog(trace) << "Peer with IPv6 address " << str << " added." << std::endl;
+				}
+			}
+			if(!p->ipv4.empty()){
+				char str[INET_ADDRSTRLEN];
+				struct sockaddr_in sa;
+				inet_ntop(AF_INET, p->ipv4.c_str(), str, INET_ADDRSTRLEN);
+				inet_pton(AF_INET, str, &(sa.sin_addr));
+				if (ipv4_is_public(sa.sin_addr)) {
+					stats.ipv4_peers++;
+ 					syslog(trace) << "Peer with IPv4 address " << str << " added." << std::endl;
+				}
+			}
+		}
+		if (dec_l || dec_s) {
+			if(!p->ipv6.empty()){
+				char str[INET6_ADDRSTRLEN];
+				struct sockaddr_in6 sa6;
+				inet_ntop(AF_INET6, p->ipv6.c_str(), str, INET6_ADDRSTRLEN);
+				inet_pton(AF_INET6, str, &(sa6.sin6_addr));
+				if (ipv6_is_public(sa6.sin6_addr)) {
+					stats.ipv6_peers--;
+					syslog(trace) << "Peer with IPv6 address " << str << " removed." << std::endl;
+				}
+			}
+			if(!p->ipv4.empty()){
+				char str[INET_ADDRSTRLEN];
+				struct sockaddr_in sa;
+				inet_ntop(AF_INET, p->ipv4.c_str(), str, INET_ADDRSTRLEN);
+				inet_pton(AF_INET, str, &(sa.sin_addr));
+				if (ipv4_is_public(sa.sin_addr)) {
+					stats.ipv4_peers--;
+ 					syslog(trace) << "Peer with IPv4 address " << str << " removed." << std::endl;
+				}
+			}
+		}
 	}
 
 	// Correct the stats for the old user if the peer's user link has changed
@@ -918,8 +962,10 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 	if (stopped_torrent) {
 		if (left > 0) {
 			tor.leechers.erase(peer_it);
+			dec_l = true;
 		} else {
 			tor.seeders.erase(peer_it);
+			dec_s = true;
 		}
 	}
 
@@ -1399,7 +1445,9 @@ void worker::reap_peers() {
 				del_p->second.user->decr_leeching();
 				t->second.leechers.erase(del_p);
 				reaped_this = true;
-				reaped_l++;
+				stats.leechers--;
+				if(!p->second.ipv6.empty()) stats.ipv6_peers--;
+				if(!p->second.ipv4.empty()) stats.ipv4_peers--;
 			} else {
 				++p;
 			}
@@ -1412,7 +1460,9 @@ void worker::reap_peers() {
 				del_p->second.user->decr_seeding();
 				t->second.seeders.erase(del_p);
 				reaped_this = true;
-				reaped_s++;
+				stats.seeders--;
+				if(!p->second.ipv6.empty()) stats.ipv6_peers--;
+				if(!p->second.ipv4.empty()) stats.ipv4_peers--;
 			} else {
 				++p;
 			}
@@ -1437,10 +1487,6 @@ void worker::reap_peers() {
 			db->record_torrent(record_str);
 			cleared_torrents++;
 		}
-	}
-	if (reaped_l || reaped_s) {
-		stats.leechers -= reaped_l;
-		stats.seeders -= reaped_s;
 	}
 	syslog(trace) << "Reaped " << reaped_l << " leechers, " << reaped_s << " seeders and " << reaped_fl << " tokens. Reset " << cleared_torrents << " torrents";
 }

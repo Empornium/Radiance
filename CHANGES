@@ -1,3 +1,10 @@
+-- 1.1.3 (2018-10-01)
+Update user loading SQL query
+Fix logger file handling
+Add -v command line argument to print version
+Split peer counting into IPv4/IPv6
+Fix IPv6 subnet check (thanks APL)
+
 -- 1.1.2 (2017-07-03)
 Add support for BEP21 and BEP24 (http://www.bittorrent.org/beps/bep_0000.html)
 Fix bug in protected status updates

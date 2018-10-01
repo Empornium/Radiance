@@ -16,6 +16,13 @@
 #include <boost/log/sinks/text_ostream_backend.hpp>
 #include <boost/log/attributes/named_scope.hpp>
 
+//Fugley, but it works
+boost::shared_ptr<
+    boost::log::v2_mt_posix::sinks::synchronous_sink<
+        boost::log::v2_mt_posix::sinks::text_file_backend
+    >
+> fsSink;
+
 void init_log(void) {
   boost::log::core::get()->flush();
   boost::log::core::get()->remove_all_sinks();
@@ -62,15 +69,33 @@ void init_log(void) {
     % fmtTimeStamp % boost::log::expressions::smessage;
 
   if(conf->get_str("syslog_path") != "off") {
-    auto fsSink = boost::log::add_file_log(
-    boost::log::keywords::file_name = conf->get_str("syslog_path"),
-    boost::log::keywords::rotation_size = 100 * 1024 * 1024,
-    boost::log::keywords::min_free_space = 30 * 1024 * 1024,
-    boost::log::keywords::open_mode = std::ios_base::app);
+    fsSink = boost::log::add_file_log(
+        boost::log::keywords::file_name = conf->get_str("syslog_path"),
+        boost::log::keywords::min_free_space = 30 * 1024 * 1024,
+        boost::log::keywords::open_mode = std::ios_base::app
+    );
     fsSink->set_formatter(fileLogFmt);
+
+    #if(__DEBUG_BUILD__)
     fsSink->locked_backend()->auto_flush(true);
+    #endif
   } else {
     auto consoleSink = boost::log::add_console_log(std::clog);
     consoleSink->set_formatter(consoleLogFmt);
+  }
+}
+
+// Logrotate is hanging the tracker, annoying as it really shouldn't.
+// Trying this as a work around.
+void rotate_log(void) {
+  auto oldLFS = fsSink;
+  init_log();
+  boost::log::core::get()->remove_sink(oldLFS);
+}
+
+void flush_log(void) {
+  // Check if the log is open before flushing!
+  if (fsSink) {
+    fsSink->flush();
   }
 }

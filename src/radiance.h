@@ -136,6 +136,8 @@ struct stats_t {
 	std::atomic<uint64_t> scrapes;
 	std::atomic<uint64_t> bytes_read;
 	std::atomic<uint64_t> bytes_written;
+	std::atomic<uint64_t> ipv6_peers;
+	std::atomic<uint64_t> ipv4_peers;
 	stats_db_t db;
 	time_t start_time;
 };

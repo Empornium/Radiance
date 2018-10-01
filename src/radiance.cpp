@@ -15,6 +15,7 @@
 #include "site_comm.h"
 #include "misc_functions.h"
 #include "debug.h"
+#include "../config.h" // Used to fetch PACKAGE_VERSION string
 
 static connection_mother *mother;
 static worker *work;
@@ -99,7 +100,7 @@ static void sig_handler(int sig) {
 		syslog(info) << "Reloading config";
 		conf->reload();
 		// Reinitialize logger
-		init_log();
+		rotate_log();
 		db->reload_config();
 		mother->reload_config();
 		sc->reload_config();
@@ -131,7 +132,10 @@ int main(int argc, char **argv) {
 	bool conf_arg = false, daemonize = false;
 	std::string conf_file_path("./radiance.conf");
 	for (int i = 1; i < argc; i++) {
-		if (!strcmp(argv[i], "-d")) {
+		if (!strcmp(argv[i], "-v")) {
+			std::cout << "Radiance BitTorrent Tracker v" << PACKAGE_VERSION << std::endl;
+			return 0;
+		} else if (!strcmp(argv[i], "-d")) {
 			daemonize = true;
 		} else if (!strcmp(argv[i], "-c") && i < argc - 1) {
 			conf_arg = true;

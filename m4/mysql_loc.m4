@@ -1,5 +1,5 @@
 dnl @synopsis MYSQL_C_API_LOCATION
-dnl 
+dnl
 dnl This macro tries to find MySQL C API header and library locations.
 dnl
 dnl We define the following configure script flags:
@@ -21,7 +21,7 @@ AC_DEFUN([MYSQL_C_API_LOCATION],
 		[AS_HELP_STRING([--with-mysql=<path>],[root directory path of MySQL installation])],
 		[MYSQL_lib_check="$with_mysql/lib/mysql $with_mysql/lib"
 		MYSQL_inc_check="$with_mysql/include $with_mysql/include/mysql"],
-		[MYSQL_lib_check="/usr/lib64 /usr/lib /usr/lib64/mysql /usr/lib/mysql /usr/local/lib64 /usr/local/lib /usr/local/lib/mysql /usr/local/mysql/lib /usr/local/mysql/lib/mysql /usr/mysql/lib/mysql /opt/mysql/lib /opt/mysql/lib/mysql /sw/lib /sw/lib/mysql"
+		[MYSQL_lib_check="/usr/lib64 /usr/lib /usr/lib64/mysql /usr/lib/mysql /usr/local/lib64 /usr/local/lib /usr/local/lib/mysql /usr/local/mysql/lib /usr/local/mysql/lib/mysql /usr/mysql/lib/mysql /usr/lib/x86_64-linux-gnu /opt/mysql/lib /opt/mysql/lib/mysql /sw/lib /sw/lib/mysql"
 		MYSQL_inc_check="/usr/include/mysql /usr/local/include/mysql /usr/local/mysql/include /usr/local/mysql/include/mysql /usr/mysql/include/mysql /opt/mysql/include/mysql /sw/include/mysql"])
 	AC_ARG_WITH(mysql-lib,
 		[AS_HELP_STRING([--with-mysql-lib=<path>],[directory path of MySQL library installation])],

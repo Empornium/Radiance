@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT(radiance, 1.1.2)
+AC_INIT(radiance, 1.1.3)
 AC_CONFIG_SRCDIR([src])
 AC_CONFIG_HEADERS([config.h])
 
@@ -40,7 +40,7 @@ AC_PROG_CXX
 AC_CONFIG_FILES([Makefile src/Makefile])
 AC_LANG([C++])
 AX_CXX_COMPILE_STDCXX(11, noext, mandatory)
-AX_BOOST_BASE([1.37], [], [AC_MSG_ERROR(Need boost >= 1.37)])
+AX_BOOST_BASE([1.55], [], [AC_MSG_ERROR(Need boost >= 1.55)])
 AX_BOOST_IOSTREAMS
 AX_BOOST_SYSTEM
 AX_BOOST_THREAD

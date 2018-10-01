@@ -40,7 +40,9 @@ std::string report(params_type &params, user_list &users_list, domain_list &doma
 		<< R"(  "leechers tracked": )" << stats.leechers << ',' << std::endl
 		<< R"(  "seeders tracked": )" << stats.seeders << ',' << std::endl
 		<< R"(  "bytes read": )" << stats.bytes_read << ',' << std::endl
-		<< R"(  "bytes written": )" << stats.bytes_written << std::endl
+		<< R"(  "bytes written": )" << stats.bytes_written << ',' << std::endl
+		<< R"(  "IPv4 peers": )" << stats.ipv4_peers << ','  << std::endl
+		<< R"(  "IPv6 peers": )" << stats.ipv6_peers << std::endl
 		<< "}" << std::endl;
 	} else if (action == "db") {
 		output << "{" << std::endl
