@@ -29,11 +29,12 @@ Radiance is a BitTorrent tracker written in C++ for the [Luminance](http://www.g
 * Edit `radiance.conf` to your liking.
 
 * Build Radiance:
-
-	autoreconf
-        ./configure
-        make
-        make install
+```
+autoreconf -i
+./configure
+make
+sudo make install
+```
 
 # Configure options:
 `--with-jemalloc` is recommended
@@ -47,8 +48,9 @@ Radiance is a BitTorrent tracker written in C++ for the [Luminance](http://www.g
 
 * `-c <path/to/radiance.conf>` - Path to config file. If unspecified, the current working directory is used.
 * `-d` - Fork to the background and run as a service daemon.
+* `-v` - Print version string and exit.
 
 ### Signals
 
 * `SIGHUP` - Reload config
-* `SIGUSR1` - Reload torrent list, user list and client whitelist
+* `SIGUSR1` - Reload torrent list, user list and client blacklist

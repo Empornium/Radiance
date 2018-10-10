@@ -1,6 +1,9 @@
 #define BOOST_LOG_DYN_LINK 1
 
+#include "../autoconf.h"
 #include "radiance.h"
+#include "logger.h"
+#include "config.h"
 #include <boost/shared_ptr.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/log/trivial.hpp>
@@ -32,7 +35,7 @@ void init_log(void) {
   boost::log::core::get()->add_global_attribute("Scope",
   boost::log::attributes::named_scope());
 
-  auto severity = boost::log::trivial::trace;
+  auto severity = boost::log::trivial::info;
        if(conf->get_str("syslog_level") == "trace")    severity=boost::log::trivial::trace;
   else if(conf->get_str("syslog_level") == "debug")    severity=boost::log::trivial::debug;
   else if(conf->get_str("syslog_level") == "info")     severity=boost::log::trivial::info;
@@ -76,7 +79,7 @@ void init_log(void) {
     );
     fsSink->set_formatter(fileLogFmt);
 
-    #if(__DEBUG_BUILD__)
+    #if defined(__DEBUG_BUILD__)
     fsSink->locked_backend()->auto_flush(true);
     #endif
   } else {

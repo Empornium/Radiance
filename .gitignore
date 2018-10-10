@@ -11,5 +11,13 @@ configure
 Makefile
 Makefile.in
 radiance.conf
-radiance
+src/radiance
 debug.log
+autoconf.h.in
+autoconf.h
+compile
+depcomp
+install-sh
+missing
+stamp-h1
+

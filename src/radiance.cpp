@@ -5,21 +5,21 @@
 #include <sys/file.h>
 #include <fcntl.h>
 
+#include "../autoconf.h"
 #include "radiance.h"
-#include "logger.h"
-#include "config.h"
-#include "db.h"
+#include "database.h"
 #include "worker.h"
 #include "events.h"
 #include "schedule.h"
 #include "site_comm.h"
 #include "misc_functions.h"
 #include "debug.h"
-#include "../config.h" // Used to fetch PACKAGE_VERSION string
+#include "config.h"
+#include "logger.h"
 
 static connection_mother *mother;
 static worker *work;
-static mysql *db;
+static database *db;
 static site_comm *sc;
 static schedule *sched;
 
@@ -111,7 +111,7 @@ static void sig_handler(int sig) {
 		syslog(info) << "Reloading from database";
 		std::thread w_thread(&worker::reload_lists, work);
 		w_thread.detach();
-#if(__DEBUG_BUILD__)
+#if defined(__DEBUG_BUILD__)
 	}  else if (sig == SIGSEGV) {
 		// print out all the frames to stderr
 		syslog(fatal) << "SegFault:" << '\n' << backtrace(1);
@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
 			conf_arg = true;
 			conf_file_path = argv[++i];
 		} else {
-			std::cout << "Usage: " << argv[0] << " [-d] [-c configfile]" << std::endl;
+			std::cout << "Usage: " << argv[0] << "[-v] [-d] [-c configfile]" << std::endl;
 			return 0;
 		}
 	}
@@ -193,13 +193,7 @@ int main(int argc, char **argv) {
 		syslog(info) << "Running in Foreground";
 	}
 
-	db = new mysql();
-
-	if (!db->connected()) {
-		syslog(info) << "Exiting";
-		return 0;
-	}
-
+	db = new database();
 	sc = new site_comm();
 
 	users_list    = new user_list;
@@ -210,6 +204,7 @@ int main(int argc, char **argv) {
 	db->load_site_options();
 	db->load_users(*users_list);
 	db->load_torrents(*torrents_list);
+	db->load_tokens(*torrents_list);
 	db->load_peers(*torrents_list, *users_list);
 	db->load_blacklist(blacklist);
 
@@ -226,12 +221,12 @@ int main(int argc, char **argv) {
 	stats.bytes_read = 0;
 	stats.bytes_written = 0;
 
-	stats.db.torrent_queue = 0;
-	stats.db.user_queue = 0;
-	stats.db.peer_queue = 0;
-	stats.db.peer_hist_queue = 0;
-	stats.db.snatch_queue = 0;
-	stats.db.token_queue = 0;
+	stats.torrent_queue = 0;
+	stats.user_queue = 0;
+	stats.peer_queue = 0;
+	stats.peer_hist_queue = 0;
+	stats.snatch_queue = 0;
+	stats.token_queue = 0;
 
 	stats.start_time = time(NULL);
 

@@ -1,6 +1,9 @@
 #include <string>
+#include "../autoconf.h"
+#include "debug.h"
 
-#if(__DEBUG_BUILD__)
+#if defined(__DEBUG_BUILD__)
+#include <sstream>
 #include <execinfo.h>
 #include <fcntl.h>
 #include <dlfcn.h>

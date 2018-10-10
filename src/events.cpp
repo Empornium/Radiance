@@ -1,13 +1,17 @@
 #include <cerrno>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <netdb.h>
+
 #include "radiance.h"
-#include "config.h"
-#include "worker.h"
-#include "schedule.h"
 #include "response.h"
 #include "events.h"
+#include "worker.h"
+#include "schedule.h"
+#include "site_comm.h"
+#include "config.h"
+#include "logger.h"
 
 // Define the connection mother (first half) and connection middlemen (second half)
 

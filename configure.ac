@@ -2,9 +2,9 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT(radiance, 1.1.3)
+AC_INIT(radiance, 1.1.4)
 AC_CONFIG_SRCDIR([src])
-AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_HEADERS([autoconf.h])
 
 # Checks for programs.
 AC_PROG_CXX
@@ -72,9 +72,11 @@ fi
 AC_ARG_ENABLE([debug],
   [  --enable-debug           build with additional debugging code],
   [
-    CFLAGS='-g';
-    LDFLAGS="${LDFLAGS} -ldl";
-    AC_DEFINE([__DEBUG_BUILD__], [], [enable debug build])
+    CFLAGS='-g -pg -ggdb';
+    LDFLAGS="${LDFLAGS} -ldl -lprofiler";
+    LIBS="$LIBS -lprofiler";
+    AC_DEFINE([__DEBUG_BUILD__], [true], [enable debug build])
+    AC_MSG_NOTICE($(tput setaf 1)"DEBUG BUILD ENABLED!!!"$(tput sgr0))
   ]
 )
 

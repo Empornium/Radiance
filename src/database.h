@@ -4,13 +4,36 @@
 #include <mysql++/mysql++.h>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <queue>
 #include <mutex>
-#include "config.h"
 
-class mysql {
+class dbConnectionPool : public mysqlpp::ConnectionPool {
 	private:
-		mysqlpp::Connection conn;
+		void load_config();
+		unsigned int mysql_port, mysql_connections, mysql_timeout;
+		std::string mysql_db, mysql_host, mysql_username, mysql_password;
+		std::unordered_set<mysqlpp::Connection*> in_use_connections;
+		std::mutex pool_lock;
+
+	public:
+		dbConnectionPool();
+		~dbConnectionPool();
+		mysqlpp::Connection* grab();
+		mysqlpp::Connection* exchange(const mysqlpp::Connection* conn);
+		mysqlpp::Connection* exchange(const mysqlpp::ScopedConnection* conn);
+		void release(const mysqlpp::Connection* conn);
+		void release(const mysqlpp::ScopedConnection* conn);
+
+	protected:
+		mysqlpp::Connection* create();
+		void destroy(mysqlpp::Connection* conn);
+		unsigned int max_idle_time();
+};
+
+class database {
+	private:
+		dbConnectionPool* pool;
 		std::string update_user_buffer;
 		std::string update_torrent_buffer;
 		std::string update_peer_heavy_buffer;
@@ -26,9 +49,8 @@ class mysql {
 		std::queue<std::string> snatch_queue;
 		std::queue<std::string> token_queue;
 
-		std::string mysql_db, mysql_host, mysql_username, mysql_password;
 		bool u_active, t_active, p_active, s_active, h_active, tok_active;
-		bool readonly, load_peerlists;
+		bool readonly, load_peerlists, clear_peerlists;
 
 		// These locks prevent more than one thread from reading/writing the buffers.
 		// These should be held for the minimum time possible.
@@ -41,14 +63,7 @@ class mysql {
 		std::mutex token_queue_lock;
 
 		void load_config();
-		void load_tokens(torrent_list &torrents);
 
-		void do_flush_users();
-		void do_flush_torrents();
-		void do_flush_snatches();
-		void do_flush_peers();
-		void do_flush_peer_hist();
-		void do_flush_tokens();
 
 		void flush_users();
 		void flush_torrents();
@@ -56,18 +71,19 @@ class mysql {
 		void flush_peers();
 		void flush_peer_hist();
 		void flush_tokens();
+		void do_flush(bool &active, std::queue<std::string> &queue, std::mutex &lock, std::atomic<uint64_t> &queue_size, const std::string queue_name);
 		void clear_peer_data();
 
 		peer_list::iterator add_peer(peer_list &peer_list, const std::string &peer_id);
 		static inline bool peer_is_visible(user_ptr &u, peer *p);
 
 	public:
-		mysql();
+		database();
 		void shutdown();
 		void reload_config();
-		bool connected();
 		void load_site_options();
 		void load_torrents(torrent_list &torrents);
+		void load_tokens(torrent_list &torrents);
 		void load_users(user_list &users);
 		void load_peers(torrent_list &torrents, user_list &users);
 		void load_seeders(torrent_list &torrents, user_list &users);
@@ -83,10 +99,7 @@ class mysql {
 		void record_token(const std::string &record);
 
 		void flush();
-
 		bool all_clear();
-
-		void report();
 
 		std::mutex torrent_list_mutex;
 		std::mutex user_list_mutex;

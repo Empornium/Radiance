@@ -13,19 +13,20 @@
 #include <mutex>
 #include <thread>
 
-#include "radiance.h"
+#include "../autoconf.h"
 #include "config.h"
-#include "db.h"
 #include "worker.h"
-#include "misc_functions.h"
+#include "database.h"
 #include "site_comm.h"
+#include "misc_functions.h"
 #include "response.h"
 #include "report.h"
 #include "user.h"
 #include "domain.h"
+#include "logger.h"
 
 //---------- Worker - does stuff with input
-worker::worker(torrent_list &torrents, user_list &users, domain_list &domains, std::vector<std::string> &_blacklist, mysql * db_obj, site_comm * sc) :
+worker::worker(torrent_list &torrents, user_list &users, domain_list &domains, std::vector<std::string> &_blacklist, database * db_obj, site_comm * sc) :
 	db(db_obj), s_comm(sc), torrents_list(torrents), users_list(users), domains_list(domains), blacklist(_blacklist), status(OPEN), reaper_active(false)
 {
 	load_config();
@@ -64,6 +65,9 @@ void worker::reload_lists() {
 bool worker::shutdown() {
 	if (status == OPEN) {
 		status = CLOSING;
+		while(reaper_active) {
+			sleep(1);
+		}
 		torrents_list.clear();
 		users_list.clear();
 		domains_list.clear();
@@ -71,7 +75,7 @@ bool worker::shutdown() {
 		delete &torrents_list;
 		delete &users_list;
 		delete &domains_list;
-		syslog(info) << "closing tracker... press Ctrl-C again to terminate";
+		syslog(info) << "flushing DB buffers... press Ctrl-C again to terminate immediately";
 		return false;
 	} else if (status == CLOSING) {
 		syslog(info) << "shutting down uncleanly";
@@ -193,7 +197,7 @@ std::string worker::work(const std::string &input, std::string &ip, uint16_t &ip
 	bool found_data = false;
 
 	for (; pos < input_length; ++pos) {
-		if (std::strncmp(&input[pos], ": ",  2) == 0) { // Look for `: "` explicitly
+		if (unlikely(std::strncmp(&input[pos], ": ",  2) == 0)) { // Look for `: "` explicitly
 			parsing_key = false;
 			++pos; // skip space after :
 		} else if (input[pos] == '\n' || input[pos] == '\r') {
@@ -906,7 +910,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 				inet_pton(AF_INET6, str, &(sa6.sin6_addr));
 				if (ipv6_is_public(sa6.sin6_addr)) {
 					stats.ipv6_peers++;
-					syslog(trace) << "Peer with IPv6 address " << str << " added." << std::endl;
+					syslog(trace) << "Peer with IPv6 address " << str << " added.";
 				}
 			}
 			if(!p->ipv4.empty()){
@@ -916,7 +920,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 				inet_pton(AF_INET, str, &(sa.sin_addr));
 				if (ipv4_is_public(sa.sin_addr)) {
 					stats.ipv4_peers++;
- 					syslog(trace) << "Peer with IPv4 address " << str << " added." << std::endl;
+ 					syslog(trace) << "Peer with IPv4 address " << str << " added.";
 				}
 			}
 		}
@@ -928,7 +932,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 				inet_pton(AF_INET6, str, &(sa6.sin6_addr));
 				if (ipv6_is_public(sa6.sin6_addr)) {
 					stats.ipv6_peers--;
-					syslog(trace) << "Peer with IPv6 address " << str << " removed." << std::endl;
+					syslog(trace) << "Peer with IPv6 address " << str << " removed." ;
 				}
 			}
 			if(!p->ipv4.empty()){
@@ -938,7 +942,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 				inet_pton(AF_INET, str, &(sa.sin_addr));
 				if (ipv4_is_public(sa.sin_addr)) {
 					stats.ipv4_peers--;
- 					syslog(trace) << "Peer with IPv4 address " << str << " removed." << std::endl;
+ 					syslog(trace) << "Peer with IPv4 address " << str << " removed.";
 				}
 			}
 		}
@@ -1430,84 +1434,98 @@ void worker::do_start_reaper() {
 }
 
 void worker::reap_peers() {
-	syslog(trace) << "Starting peer reaper";
+	syslog(debug) << "Starting peer reaper";
 	cur_time = time(NULL);
-	unsigned int reaped_l = 0, reaped_s = 0, reaped_fl = 0;
+	unsigned int reaped_l = 0, reaped_v4l = 0, reaped_v6l = 0;
+	unsigned int reaped_s = 0, reaped_v4s = 0, reaped_v6s = 0;
+	unsigned int reaped_fl = 0;
 	unsigned int cleared_torrents = 0;
-	for (auto t = torrents_list.begin(); t != torrents_list.end(); ++t) {
+	for (auto torrent = torrents_list.begin(); torrent != torrents_list.end(); torrent++) {
 		bool reaped_this = false; // True if at least one peer was deleted from the current torrent
-		auto p = t->second.leechers.begin();
+		auto p = torrent->second.leechers.begin();
 		peer_list::iterator del_p;
-		while (p != t->second.leechers.end()) {
+		while (p != torrent->second.leechers.end()) {
 			if (p->second.last_announced + peers_timeout < cur_time) {
 				std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
+				if(!p->second.ipv6.empty()) reaped_v6l++;
+				if(!p->second.ipv4.empty()) reaped_v4l++;
+				reaped_l++;
+				reaped_this = true;
 				del_p = p++;
 				del_p->second.user->decr_leeching();
-				t->second.leechers.erase(del_p);
-				reaped_this = true;
-				stats.leechers--;
-				if(!p->second.ipv6.empty()) stats.ipv6_peers--;
-				if(!p->second.ipv4.empty()) stats.ipv4_peers--;
+				torrent->second.leechers.erase(del_p);
 			} else {
 				++p;
 			}
 		}
-		p = t->second.seeders.begin();
-		while (p != t->second.seeders.end()) {
+		p = torrent->second.seeders.begin();
+		while (p != torrent->second.seeders.end()) {
 			if (p->second.last_announced + peers_timeout < cur_time) {
 				std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
+				if(!p->second.ipv6.empty()) reaped_v6s++;
+				if(!p->second.ipv4.empty()) reaped_v4s++;
+				reaped_s++;
+				reaped_this = true;
 				del_p = p++;
 				del_p->second.user->decr_seeding();
-				t->second.seeders.erase(del_p);
-				reaped_this = true;
-				stats.seeders--;
-				if(!p->second.ipv6.empty()) stats.ipv6_peers--;
-				if(!p->second.ipv4.empty()) stats.ipv4_peers--;
+				torrent->second.seeders.erase(del_p);
 			} else {
 				++p;
 			}
 		}
-		auto fl = t->second.tokened_users.begin();
+		auto fl = torrent->second.tokened_users.begin();
 		slots_list::iterator del_fl;
-		while (fl != t->second.tokened_users.end()) {
+		while (fl != torrent->second.tokened_users.end()) {
 			if (fl->second.free_leech < cur_time && fl->second.double_seed < cur_time) {
 				std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
 				del_fl = fl++;
-				t->second.tokened_users.erase(del_fl);
+				torrent->second.tokened_users.erase(del_fl);
 				reaped_this = true;
 				reaped_fl++;
 			} else {
 				++fl;
 			}
 		}
-		if (reaped_this && t->second.seeders.empty() && t->second.leechers.empty()) {
+		if (reaped_this) {
+			syslog(trace) << "Reaped peers for torrent: " << torrent->second.id;
+		} else {
+			syslog(trace) << "Skipped torrent: " << torrent->second.id;
+		}
+		if (reaped_this && torrent->second.seeders.empty() && torrent->second.leechers.empty()) {
 			std::stringstream record;
-			record << '(' << t->second.id << ",0,0,0," << t->second.balance << ')';
+			record << '(' << torrent->second.id << ",0,0,0," << torrent->second.balance << ')';
 			std::string record_str = record.str();
 			db->record_torrent(record_str);
 			cleared_torrents++;
 		}
 	}
-	syslog(trace) << "Reaped " << reaped_l << " leechers, " << reaped_s << " seeders and " << reaped_fl << " tokens. Reset " << cleared_torrents << " torrents";
+
+	if (reaped_l || reaped_v4l || reaped_v6l || reaped_s || reaped_v4s || reaped_v6s) {
+		stats.leechers   -= reaped_l;
+		stats.seeders    -= reaped_s;
+		stats.ipv4_peers -= (reaped_v4l + reaped_v4s);
+		stats.ipv6_peers -= (reaped_v6l + reaped_v6s);
+	}
+
+	syslog(debug) << "Reaped " << reaped_l << " leechers, " << reaped_s << " seeders and " << reaped_fl << " tokens. Reset " << cleared_torrents << " torrents";
 }
 
 void worker::reap_del_reasons()
 {
-	syslog(trace) << "Starting del reason reaper";
+	syslog(debug) << "Starting del reason reaper";
 	time_t max_time = time(NULL) - del_reason_lifetime;
-	auto it = del_reasons.begin();
 	unsigned int reaped = 0;
-	for (; it != del_reasons.end(); ) {
-		if (it->second.time <= max_time) {
-			auto del_it = it++;
+	for (auto reason = del_reasons.begin(); reason != del_reasons.end();) {
+		if (reason->second.time <= max_time) {
+			auto del_it = reason++;
 			std::lock_guard<std::mutex> dr_lock(del_reasons_lock);
 			del_reasons.erase(del_it);
 			reaped++;
 			continue;
 		}
-		++it;
+		reason++;
 	}
-	syslog(trace) << "Reaped " << reaped << " del reasons";
+	syslog(debug) << "Reaped " << reaped << " del reasons";
 }
 
 std::string worker::get_del_reason(int code)
@@ -1623,13 +1641,13 @@ std::string worker::bencode_str(std::string data) {
 	return bencoded_str;
 }
 
-#if(__DEBUG_BUILD__)
+#if defined(__DEBUG_BUILD__)
 /*
  *  Allow any addresses in a debug build, it's expected
  *  that we will generate local traffic for testing.
  */
 bool worker::ipv4_is_public(in_addr addr){return true;}
-bool worker::ipv6_is_public(in_addr addr){return true;}
+bool worker::ipv6_is_public(in6_addr addr){return true;}
 #else
 bool worker::ipv4_is_public(in_addr addr){
 

@@ -1,5 +1,5 @@
 sbin_PROGRAMS = radiance
-radiance_SOURCES = ../config.h config.cpp config.h logger.h logger.cpp db.cpp db.h events.cpp events.h misc_functions.cpp \
+radiance_SOURCES = ../config.h config.cpp config.h logger.h logger.cpp database.cpp database.h events.cpp events.h misc_functions.cpp \
 	misc_functions.h radiance.cpp radiance.h report.cpp report.h response.cpp response.h domain.h debug.h debug.cpp\
 	domain.cpp schedule.cpp schedule.h site_comm.cpp site_comm.h user.cpp user.h worker.cpp worker.h
 

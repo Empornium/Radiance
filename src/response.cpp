@@ -2,9 +2,10 @@
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
+
+#include "../autoconf.h"
 #include "response.h"
 #include "misc_functions.h"
-#include "../config.h" // Used to fetch PACKAGE_VERSION string
 
 const std::string response(const std::string &body, client_opts_t &client_opts, uint16_t response) {
 	std::string out;

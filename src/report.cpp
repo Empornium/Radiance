@@ -1,7 +1,6 @@
 #include <iostream>
 #include <map>
 #include <sstream>
-#include "radiance.h"
 #include "misc_functions.h"
 #include "report.h"
 #include "response.h"
@@ -46,12 +45,12 @@ std::string report(params_type &params, user_list &users_list, domain_list &doma
 		<< "}" << std::endl;
 	} else if (action == "db") {
 		output << "{" << std::endl
-		<< R"(  "torrent_queue": )" << stats.db.torrent_queue << ',' << std::endl
-		<< R"(  "user_queue": )" << stats.db.user_queue << ',' << std::endl
-		<< R"(  "peer_queue": )" << stats.db.peer_queue << ',' << std::endl
-		<< R"(  "peer_hist_queue": )" << stats.db.peer_hist_queue << ',' << std::endl
-		<< R"(  "snatch_queue": )" << stats.db.snatch_queue << ',' << std::endl
-		<< R"(  "token_queue": )" << stats.db.token_queue << std::endl
+		<< R"(  "torrent_queue": )" << stats.torrent_queue << ',' << std::endl
+		<< R"(  "user_queue": )" << stats.user_queue << ',' << std::endl
+		<< R"(  "peer_queue": )" << stats.peer_queue << ',' << std::endl
+		<< R"(  "peer_hist_queue": )" << stats.peer_hist_queue << ',' << std::endl
+		<< R"(  "snatch_queue": )" << stats.snatch_queue << ',' << std::endl
+		<< R"(  "token_queue": )" << stats.token_queue << std::endl
 		<< "}" << std::endl;
 	} else if (action == "domain") {
 		output << "{" << std::endl;

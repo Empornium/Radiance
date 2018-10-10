@@ -8,14 +8,14 @@ class schedule {
 
 		unsigned int reap_peers_interval;
 		worker * work;
-		mysql * db;
+		database * db;
 		site_comm * sc;
 		uint64_t last_opened_connections;
 		uint64_t last_request_count;
 		unsigned int counter;
 		int next_reap_peers;
 	public:
-		schedule(worker * worker_obj, mysql * db_obj, site_comm * sc_obj);
+		schedule(worker * worker_obj, database * db_obj, site_comm * sc_obj);
 		void reload_config();
 		void handle(ev::timer &watcher, int events_flags);
 

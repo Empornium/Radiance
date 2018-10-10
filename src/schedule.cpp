@@ -1,13 +1,15 @@
 #include <iostream>
 
+#include "../autoconf.h"
 #include "radiance.h"
 #include "config.h"
-#include "db.h"
+#include "database.h"
 #include "worker.h"
 #include "logger.h"
+#include "site_comm.h"
 #include "schedule.h"
 
-schedule::schedule(worker * worker_obj, mysql * db_obj, site_comm * sc_obj) : work(worker_obj), db(db_obj), sc(sc_obj) {
+schedule::schedule(worker * worker_obj, database * db_obj, site_comm * sc_obj) : work(worker_obj), db(db_obj), sc(sc_obj) {
 	load_config();
 	counter = 0;
 	last_opened_connections = 0;
@@ -38,7 +40,7 @@ void schedule::handle(ev::timer &watcher, int events_flags) {
 	if (work->get_status() == CLOSING && db->all_clear() && sc->all_clear()) {
 		db->shutdown();
 
-#if(__DEBUG_BUILD__)
+#if defined(__DEBUG_BUILD__)
 		delete work;
 //		delete sched;
 //		delete mother;
@@ -55,7 +57,6 @@ void schedule::handle(ev::timer &watcher, int events_flags) {
 	last_opened_connections = stats.opened_connections;
 	last_request_count = stats.requests;
 
-	db->report();
 	db->flush();
 	sc->flush_tokens();
 

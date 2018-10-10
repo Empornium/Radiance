@@ -5,8 +5,6 @@
 #include <queue>
 #include <mutex>
 
-#include "config.h"
-
 using boost::asio::ip::tcp;
 
 class site_comm {

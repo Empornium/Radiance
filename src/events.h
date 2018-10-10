@@ -11,21 +11,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "config.h"
-#include "worker.h"
-#include "schedule.h"
-#include "site_comm.h"
-
-/*
-TODO find out what these do
-#include <netinet/in.h>
-#include <netdb.h>
-#include <sys/types.h>
-*/
-
-
-
-
+// Forward declarations
+class worker;
+class schedule;
+class site_comm;
 
 /*
 We have three classes - the mother, the middlemen, and the worker
@@ -43,9 +32,6 @@ THE WORKER
 
 	see worker.h for the worker.
 */
-
-
-
 
 // THE MOTHER - Spawns connection middlemen
 class connection_mother {

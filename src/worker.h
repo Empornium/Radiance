@@ -8,15 +8,16 @@
 #include <iostream>
 #include <mutex>
 #include <ctime>
-#include "db.h"
-#include "site_comm.h"
+
 #include "radiance.h"
+class database;
+class site_comm;
 
 enum tracker_status { OPEN, PAUSED, CLOSING }; // tracker status
 
 class worker {
 	private:
-		mysql * db;
+		database * db;
 		site_comm * s_comm;
 		torrent_list &torrents_list;
 		user_list &users_list;
@@ -50,7 +51,7 @@ class worker {
 		std::string bencode_str(std::string data);
 
 	public:
-		worker(torrent_list &torrents, user_list &users, domain_list &domains, std::vector<std::string> &_blacklist, mysql * db_obj, site_comm * sc);
+		worker(torrent_list &torrents, user_list &users, domain_list &domains, std::vector<std::string> &_blacklist, database * db_obj, site_comm * sc);
 		void reload_config();
 		std::string work(const std::string &input, std::string &ip, uint16_t &ip_ver, client_opts_t &client_opts);
 		std::string announce(const std::string &input, torrent &tor, user_ptr &u, domain_ptr &d, params_type &params, params_type &headers, std::string &ip, uint16_t &ip_ver, client_opts_t &client_opts);

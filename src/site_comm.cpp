@@ -9,8 +9,9 @@
 #include <thread>
 
 #include "radiance.h"
-#include "config.h"
 #include "site_comm.h"
+#include "config.h"
+#include "logger.h"
 
 using boost::asio::ip::tcp;
 

@@ -2,6 +2,9 @@
 #define RADIANCE_CONFIG_H
 
 #include <string>
+#include <stdint.h>
+#include <time.h>
+#include <iosfwd>
 #include <map>
 
 class confval {

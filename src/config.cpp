@@ -1,7 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <ctime>
+#include <map>
 #include "config.h"
 #include "misc_functions.h"
 
@@ -100,6 +100,8 @@ void settings::init() {
 	add("mysql_path", "");
 	add("mysql_username", "");
 	add("mysql_password", "");
+	add("mysql_connections", 8u);
+	add("mysql_timeout", 30u);
 
 	// Site communication
 	add("site_host", "127.0.0.1");
@@ -109,13 +111,14 @@ void settings::init() {
 	add("report_password", "00000000000000000000000000000000");
 
 	// General Control
-	add("readonly",       false);
-	add("load_peerlists", false);
-	add("daemonize",      false);
-	add("syslog_path",    "off");
-	add("syslog_level",   "trace");
-	add("pid_file",       "./radiance.pid");
-	add("daemon_user",    "root");
+	add("readonly",        false);
+	add("clear_peerlists", true);
+	add("load_peerlists",  false);
+	add("daemonize",       false);
+	add("syslog_path",     "off");
+	add("syslog_level",    "info");
+	add("pid_file",        "./radiance.pid");
+	add("daemon_user",     "root");
 }
 
 void options::init() {

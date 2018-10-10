@@ -1,9 +1,6 @@
 #ifndef DOMAIN_H
 #define DOMAIN_H
 
-#include <atomic>
-#include "radiance.h"
-
 class domain {
 	public:
 		std::string host;

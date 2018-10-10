@@ -1,6 +1,9 @@
 #ifndef RADIANCE_H
 #define RADIANCE_H
 
+#define likely(x)       __builtin_expect(!!(x), 1)
+#define unlikely(x)     __builtin_expect(!!(x), 0)
+
 #include <string>
 #include <map>
 #include <vector>
@@ -14,9 +17,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "config.h"
-#include "logger.h"
-
 typedef uint32_t torid_t;
 typedef uint32_t userid_t;
 
@@ -25,6 +25,12 @@ typedef std::shared_ptr<user> user_ptr;
 
 class domain;
 typedef std::shared_ptr<domain> domain_ptr;
+
+class settings;
+extern settings *conf;
+
+class options;
+extern options  *opts;
 
 typedef struct {
 	int64_t uploaded;
@@ -114,14 +120,6 @@ typedef std::unordered_map<std::string, user_ptr> user_list;
 typedef std::unordered_map<std::string, domain_ptr> domain_list;
 typedef std::unordered_map<std::string, std::string> params_type;
 
-struct stats_db_t {
-	std::atomic<uint64_t> torrent_queue;
-	std::atomic<uint64_t> user_queue;
-	std::atomic<uint64_t> peer_queue;
-	std::atomic<uint64_t> peer_hist_queue;
-	std::atomic<uint64_t> snatch_queue;
-	std::atomic<uint64_t> token_queue;
-};
 
 struct stats_t {
 	std::atomic<uint32_t> open_connections;
@@ -138,10 +136,13 @@ struct stats_t {
 	std::atomic<uint64_t> bytes_written;
 	std::atomic<uint64_t> ipv6_peers;
 	std::atomic<uint64_t> ipv4_peers;
-	stats_db_t db;
+	std::atomic<uint64_t> torrent_queue;
+	std::atomic<uint64_t> user_queue;
+	std::atomic<uint64_t> peer_queue;
+	std::atomic<uint64_t> peer_hist_queue;
+	std::atomic<uint64_t> snatch_queue;
+	std::atomic<uint64_t> token_queue;
 	time_t start_time;
 };
 extern struct stats_t stats;
-extern settings *conf;
-extern options  *opts;
 #endif
