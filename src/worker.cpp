@@ -1665,13 +1665,13 @@ bool worker::ipv4_is_public(in_addr addr){
 bool worker::ipv6_is_public(in6_addr addr){
 
 	// Match against reserved ranges
-	if (ntohl(addr.in6_addr[0]) == 0x00000000) return false; // Loopback / v4 compat v6
+	if (ntohl(addr.s6_addr32[0]) == 0x00000000) return false; // Loopback / v4 compat v6
 	if (ntohs(addr.s6_addr16[0]) == 0xfe80    ) return false; // Link local
 	if (ntohs(addr.s6_addr16[0]) == 0xfc00    ) return false; // Unique Local - private subnet
 	if (ntohs(addr.s6_addr16[0]) == 0xfec0    ) return false; // site-local [deprecated]
 	if (ntohs(addr.s6_addr16[0]) == 0x3ffe    ) return false; // 6bone [deprecated]
-	if (ntohl(addr.in6_addr[0]) == 0x20010db8) return false; // documentation examples, unroutable
-	if (ntohl(addr.in6_addr[0]) == 0x20010000) return false; // Teredo
+	if (ntohl(addr.s6_addr32[0]) == 0x20010db8) return false; // documentation examples, unroutable
+	if (ntohl(addr.s6_addr32[0]) == 0x20010000) return false; // Teredo
 	if (ntohs(addr.s6_addr16[0]) == 0x2002    ) return false; // 6to4
 	return true;
 
