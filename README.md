@@ -36,11 +36,22 @@ make
 sudo make install
 ```
 
+* On FreeBSD:
+```
+pkg update
+pkg install autoconf automake autotools boost-libs clang35 gcc8 git gmake libev llvm35 mysql++-mysql56 google-perftools
+git clone https://github.com/SebbaGerra/Radiance.git
+cd Radiance/ && autoreconf -i && ./configure --with-tcmalloc && make && make install
+```
+
 # Configure options:
 `--with-jemalloc` is recommended
+
 `--with-tcmalloc` is a good alternative to jemalloc
+
 `--enable-debug` can help to find the source of crashes
 
+Obs: Configure flags `--with-jemalloc` and `--enable-debug` doesn't work  on FreeBSD, `--with-jemalloc` work's since you have google-perftools installed.
 
 ## Running Radiance
 
