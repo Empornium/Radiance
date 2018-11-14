@@ -1,6 +1,10 @@
 #ifndef SCHEDULE_H
 #define SCHEDULE_H
 
+#ifdef EV_ERROR
+#undef EV_ERROR
+#endif
+
 #include <ev++.h>
 class schedule {
 	private:
