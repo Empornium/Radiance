@@ -36,6 +36,14 @@ make
 sudo make install
 ```
 
+* On FreeBSD:
+```
+pkg update
+pkg install autoconf automake autotools boost-libs clang35 gcc8 git gmake libev llvm35 mysql++-mysql56
+git clone https://github.com/SebbaGerra/Radiance.git
+cd Radiance/ && autoreconf -i && ./configure && make && make install
+```
+
 # Configure options:
 `--with-jemalloc` is recommended
 `--with-tcmalloc` is a good alternative to jemalloc
