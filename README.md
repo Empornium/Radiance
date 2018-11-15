@@ -46,9 +46,12 @@ cd Radiance/ && autoreconf -i && ./configure && make && make install
 
 # Configure options:
 `--with-jemalloc` is recommended
+
 `--with-tcmalloc` is a good alternative to jemalloc
+
 `--enable-debug` can help to find the source of crashes
 
+Obs: Configure flags doesn't work  on FreeBSD
 
 ## Running Radiance
 
