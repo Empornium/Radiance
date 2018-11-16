@@ -51,7 +51,7 @@ cd Radiance/ && autoreconf -i && ./configure --with-tcmalloc && make && make ins
 
 `--enable-debug` can help to find the source of crashes
 
-Obs: Configure flags jemalloc and enable-debug doesn't work  on FreeBSD, --with-jemalloc work's since you have google-perftools installed.
+Obs: Configure flags `--with-jemalloc` and `--enable-debug` doesn't work  on FreeBSD, `--with-jemalloc` work's since you have google-perftools installed.
 
 ## Running Radiance
 
