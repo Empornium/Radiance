@@ -53,7 +53,6 @@ cd Radiance/ && autoreconf -i && ./configure --with-tcmalloc && make && make ins
 
 Obs: Configure flags `--with-jemalloc` and `--enable-debug` doesn't work  on FreeBSD, `--with-jemalloc` work's since you have google-perftools installed.
 
-
 ## Running Radiance
 
 ### Run-time options:
