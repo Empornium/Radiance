@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT(radiance, 1.1.4)
+AC_INIT(radiance, 1.1.5)
 AC_CONFIG_SRCDIR([src])
 AC_CONFIG_HEADERS([autoconf.h])
 

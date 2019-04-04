@@ -79,6 +79,31 @@ std::string report(params_type &params, user_list &users_list, domain_list &doma
 				<< "}" << std::endl;
 			}
 		}
+	} else if (action == "statsxml") {
+		time_t uptime = time(NULL) - stats.start_time;
+
+		output << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << std::endl
+		<< "<stats>" << std::endl
+		<< "  <uptime>" << uptime << "</uptime>" << std::endl
+		<< "  <peers>" << stats.leechers << "</peers>" << std::endl
+		<< "  <seeds>" << stats.seeders << "</seeds>" << std::endl
+		<< "  <connections>" << std::endl
+		<< "    <opened>" << stats.opened_connections << "</opened>" << std::endl
+		<< "    <open>" << stats.open_connections << "</open>" << std::endl
+		<< "    <rate>" << stats.connection_rate << "</rate>" << std::endl
+		<< "    <tcp>" << std::endl
+		<< "      <rate>" << stats.request_rate << "</rate>" << std::endl
+		<< "      <accept>" << stats.requests << "</accept>" << std::endl
+		<< "      <announce>" << stats.succ_announcements << "</announce>" << std::endl
+		<< "      <scrape>" << stats.scrapes << "</scrape>" << std::endl
+		<< "      <missmatch>" << (stats.announcements - stats.succ_announcements) << "</missmatch>" << std::endl
+		<< "    </tcp>" << std::endl
+		<< "  </connections>" << std::endl
+		<< "  <traffic>" << std::endl
+		<< "    <bytes_read>" << stats.bytes_read << "</bytes_read>" << std::endl
+		<< "    <bytes_written>" << stats.bytes_written << "</bytes_written>" << std::endl
+		<< "  </traffic>" << std::endl
+		<< "</stats>" << std::endl;
 	} else {
 		output << "Invalid action" << std::endl;
 	}

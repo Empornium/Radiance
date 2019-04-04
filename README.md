@@ -10,8 +10,10 @@ Radiance is a BitTorrent tracker written in C++ for the [Luminance](http://www.g
 * [libev](http://software.schmorp.de/pkg/libev.html) (required)
 * [MySQL++](http://tangentsoft.net/mysql++/) (3.2.0+ required)
 * [jemalloc](http://jemalloc.net) (optional, but highly recommended - preferred over tcmalloc)
-* [TCMalloc](http://goog-perftools.sourceforge.net/doc/tcmalloc.html) (optional)
+* [TCMalloc](https://github.com/gperftools/gperftools) (optional)
 
+Also required for debug builds:
+* [gperftools](https://github.com/gperftools/gperftools) (CPU profiler bindings)
 
 ### Standalone Installation
 

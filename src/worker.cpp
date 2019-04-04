@@ -581,19 +581,26 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 	auto header_ip = headers.find("x-forwarded-for");
 	if (header_ip != headers.end()) {
 		std::string ip = header_ip->second;
+		ip = ip.substr(0, ip.find(','));
 		struct addrinfo hint, *res = NULL;
 		memset(&hint, 0, sizeof hint);
 		hint.ai_family = PF_UNSPEC;
 		hint.ai_flags = AI_NUMERICHOST;
-		getaddrinfo(ip.c_str(), NULL, &hint, &res);
-		if(res->ai_family == AF_INET) {
-			ipv4 = ip;
-			public_ipv4=ip;
-		} else if (res->ai_family == AF_INET6) {
-			ipv6 = ip;
-			public_ipv6=ip;
+		int err = getaddrinfo(ip.c_str(), NULL, &hint, &res);
+		if (err != 0) {
+			syslog(trace) << "Error parsing x-forwarded-for header: "
+			<< header_ip->second << " " << gai_strerror(err);
+		} else {
+
+			if(res->ai_family == AF_INET) {
+				ipv4 = ip;
+				public_ipv4=ip;
+			} else if (res->ai_family == AF_INET6) {
+				ipv6 = ip;
+				public_ipv6=ip;
+			}
+			freeaddrinfo(res);
 		}
-		freeaddrinfo(res);
 	}
 
 	if ((param_ip = params.find("ipv4")) != params.end()) ipv4 = param_ip->second;
@@ -966,10 +973,8 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 	if (stopped_torrent) {
 		if (left > 0) {
 			tor.leechers.erase(peer_it);
-			dec_l = true;
 		} else {
 			tor.seeders.erase(peer_it);
-			dec_s = true;
 		}
 	}
 
@@ -1440,13 +1445,13 @@ void worker::reap_peers() {
 	unsigned int reaped_s = 0, reaped_v4s = 0, reaped_v6s = 0;
 	unsigned int reaped_fl = 0;
 	unsigned int cleared_torrents = 0;
+	std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
 	for (auto torrent = torrents_list.begin(); torrent != torrents_list.end(); torrent++) {
 		bool reaped_this = false; // True if at least one peer was deleted from the current torrent
 		auto p = torrent->second.leechers.begin();
 		peer_list::iterator del_p;
 		while (p != torrent->second.leechers.end()) {
 			if (p->second.last_announced + peers_timeout < cur_time) {
-				std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
 				if(!p->second.ipv6.empty()) reaped_v6l++;
 				if(!p->second.ipv4.empty()) reaped_v4l++;
 				reaped_l++;
@@ -1461,7 +1466,6 @@ void worker::reap_peers() {
 		p = torrent->second.seeders.begin();
 		while (p != torrent->second.seeders.end()) {
 			if (p->second.last_announced + peers_timeout < cur_time) {
-				std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
 				if(!p->second.ipv6.empty()) reaped_v6s++;
 				if(!p->second.ipv4.empty()) reaped_v4s++;
 				reaped_s++;
@@ -1477,7 +1481,6 @@ void worker::reap_peers() {
 		slots_list::iterator del_fl;
 		while (fl != torrent->second.tokened_users.end()) {
 			if (fl->second.free_leech < cur_time && fl->second.double_seed < cur_time) {
-				std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
 				del_fl = fl++;
 				torrent->second.tokened_users.erase(del_fl);
 				reaped_this = true;

@@ -1,7 +1,15 @@
+-- 1.1.5 (2019-04-05)
+Support MariaDB library paths
+Fix peer counting statistics
+Fix handling of X-Forwarded-For with multiple IPs
+Add XML report output
+Fix reconnection to DB with connection pool
+Add support for FreeBSD
+
 -- 1.1.4 (2018-10-10)
 Improved DB queue status reporting
 Fix potential shutdown race condition
-Update usge text to include -v option for version output
+Update usage text to include -v option for version output
 Upgrade DB handling to use a connection pool
 Fix debug build mode
 Fix IPv4/IPv6 peer accounting performance issues

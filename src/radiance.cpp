@@ -111,6 +111,9 @@ static void sig_handler(int sig) {
 		syslog(info) << "Reloading from database";
 		std::thread w_thread(&worker::reload_lists, work);
 		w_thread.detach();
+	} else if (sig == SIGUSR2) {
+		// Reinitialize logger
+		rotate_log();
 #if defined(__DEBUG_BUILD__)
 	}  else if (sig == SIGSEGV) {
 		// print out all the frames to stderr
@@ -182,15 +185,15 @@ int main(int argc, char **argv) {
 			exit(EXIT_FAILURE);
 		}
 
-		if (conf->get_str("pid_file") != "none") {
-			createPidFile("radiance", conf->get_str("pid_file").c_str(), LOCK_EX | LOCK_NB);
-		}
-
 		close(STDIN_FILENO);
 		close(STDOUT_FILENO);
 		close(STDERR_FILENO);
 	} else {
 		syslog(info) << "Running in Foreground";
+	}
+
+	if (conf->get_str("pid_file") != "none") {
+		createPidFile("radiance", conf->get_str("pid_file").c_str(), LOCK_EX | LOCK_NB);
 	}
 
 	db = new database();

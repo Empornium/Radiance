@@ -125,8 +125,8 @@ struct stats_t {
 	std::atomic<uint32_t> open_connections;
 	std::atomic<uint64_t> opened_connections;
 	std::atomic<uint64_t> connection_rate;
-	std::atomic<uint32_t> leechers;
-	std::atomic<uint32_t> seeders;
+	std::atomic<uint64_t> leechers;
+	std::atomic<uint64_t> seeders;
 	std::atomic<uint64_t> requests;
 	std::atomic<uint64_t> request_rate;
 	std::atomic<uint64_t> announcements;

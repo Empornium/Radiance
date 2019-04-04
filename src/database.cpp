@@ -39,8 +39,15 @@ mysqlpp::Connection* dbConnectionPool::grab() {
 
 	syslog(trace) << "MySQL connection issued: " << mysqlpp::ConnectionPool::size() << " (" << in_use_connections.size() << ")";
 	mysqlpp::Connection* conn = mysqlpp::ConnectionPool::grab();
-	std::lock_guard<std::mutex> grab_lock(pool_lock);
-	in_use_connections.insert(conn);
+
+	// Only count successful connections
+	if (conn->connected()) {
+			std::lock_guard<std::mutex> grab_lock(pool_lock);
+			in_use_connections.insert(conn);
+	} else {
+			// Rate limiting here
+			sleep(5);
+	}
 	return conn;
 }
 
@@ -63,14 +70,14 @@ mysqlpp::Connection* dbConnectionPool::create() {
 	syslog(trace) << "MySQL connection create called";
 	mysqlpp::Connection* conn = new mysqlpp::Connection();
 
+	// Catch the exception here but still return the failed connection.
 	try {
 		conn->set_option(new mysqlpp::ReconnectOption(true));
 		conn->connect(mysql_db.c_str(), mysql_host.c_str(), mysql_username.c_str(), mysql_password.c_str(), mysql_port);
+		syslog(trace) << "MySQL connection created: " << mysqlpp::ConnectionPool::size() << " (" << in_use_connections.size() << ")";
 	} catch (const mysqlpp::Exception &er) {
-		syslog(error) << "Failed to connect to MySQL (" << er.what() << ')';
-		return NULL;
+		syslog(error) << "MySQL connection failed: " << er.what();
 	}
-	syslog(trace) << "MySQL connection created: " << mysqlpp::ConnectionPool::size() << " (" << in_use_connections.size() << ")";
 
 	return conn;
 }
