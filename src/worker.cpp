@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <mutex>
 #include <thread>
+#include <chrono>
 
 #include "../autoconf.h"
 #include "config.h"
@@ -66,7 +67,7 @@ bool worker::shutdown() {
 	if (status == OPEN) {
 		status = CLOSING;
 		while(reaper_active) {
-			sleep(1);
+			std::this_thread::sleep_for(std::chrono::seconds(1));
 		}
 		torrents_list.clear();
 		users_list.clear();
