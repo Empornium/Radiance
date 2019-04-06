@@ -704,7 +704,7 @@ void database::flush_users() {
 	user_queue.push(sql);
 	stats.user_queue++;
 	update_user_buffer.clear();
-	if (u_active == false) {
+	if (!u_active) {
 		std::thread thread(&database::do_flush, this, std::ref(u_active), std::ref(user_queue), std::ref(user_queue_lock), std::ref(stats.user_queue), "user");
 		thread.detach();
 	}
@@ -739,7 +739,7 @@ void database::flush_torrents() {
 	sql = "DELETE FROM torrents WHERE info_hash = ''";
 	stats.torrent_queue++;
 	torrent_queue.push(sql);
-	if (t_active == false) {
+	if (!t_active) {
 		std::thread thread(&database::do_flush, this, std::ref(t_active), std::ref(torrent_queue), std::ref(torrent_queue_lock), std::ref(stats.torrent_queue), "torrent");
 		thread.detach();
 	}
@@ -763,7 +763,7 @@ void database::flush_snatches() {
 	snatch_queue.push(sql);
 	stats.snatch_queue++;
 	update_snatch_buffer.clear();
-	if (s_active == false) {
+	if (!s_active) {
 		std::thread thread(&database::do_flush, this, std::ref(s_active), std::ref(snatch_queue), std::ref(snatch_queue_lock), std::ref(stats.snatch_queue), "snatch");
 		thread.detach();
 	}
@@ -824,7 +824,7 @@ void database::flush_peers() {
 		sql.clear();
 	}
 
-	if (p_active == false) {
+	if (!p_active) {
 		std::thread thread(&database::do_flush, this, std::ref(p_active), std::ref(peer_queue), std::ref(peer_queue_lock), std::ref(stats.peer_queue), "peer");
 		thread.detach();
 	}
@@ -845,7 +845,7 @@ void database::flush_peer_hist() {
 	peer_hist_queue.push(sql);
 	stats.peer_hist_queue++;
 	update_peer_hist_buffer.clear();
-	if (h_active == false) {
+	if (!h_active) {
 		std::thread thread(&database::do_flush, this, std::ref(h_active), std::ref(peer_hist_queue), std::ref(peer_hist_queue_lock), std::ref(stats.peer_hist_queue), "peer history");
 		thread.detach();
 	}
@@ -870,7 +870,7 @@ void database::flush_tokens() {
 	token_queue.push(sql);
 	stats.token_queue++;
 	update_token_buffer.clear();
-	if (tok_active == false) {
+	if (!tok_active) {
 		std::thread thread(&database::do_flush, this, std::ref(tok_active), std::ref(token_queue), std::ref(token_queue_lock), std::ref(stats.token_queue), "token");
 		thread.detach();
 	}
