@@ -127,9 +127,11 @@ void database::shutdown() {
 }
 
 void database::load_config() {
-	readonly        = conf->get_bool("readonly");
-	clear_peerlists = conf->get_bool("clear_peerlists");
-	load_peerlists  = conf->get_bool("load_peerlists");
+	readonly         = conf->get_bool("readonly");
+	clear_peerlists  = conf->get_bool("clear_peerlists");
+	load_peerlists   = conf->get_bool("load_peerlists");
+	peers_history    = conf->get_bool("peers_history");
+	snatched_history = conf->get_bool("snatched_history");
 }
 
 void database::reload_config() {
@@ -746,7 +748,7 @@ void database::flush_torrents() {
 }
 
 void database::flush_snatches() {
-	if (readonly) {
+	if (readonly || !snatched_history) {
 		update_snatch_buffer.clear();
 		return;
 	}
@@ -831,7 +833,7 @@ void database::flush_peers() {
 }
 
 void database::flush_peer_hist() {
-	if (readonly) {
+	if (readonly || !peers_history) {
 		update_token_buffer.clear();
 		return;
 	}
