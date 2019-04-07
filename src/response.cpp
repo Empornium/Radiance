@@ -34,15 +34,15 @@ const std::string response(const std::string &body, client_opts_t &client_opts, 
 
 const std::string get_reason(uint16_t response) {
 	switch(response) {
-		case 100: return "Invalid request type: client request was not a HTTP GET."; break;
-		case 101: return "Missing info_hash."; break;
-		case 102: return "Missing peer_id."; break;
-		case 103: return "Missing port."; break;
-		case 150: return "Invalid infohash: infohash is not 20 bytes long."; break;
-		case 151: return "Invalid peerid: peerid is not 20 bytes long."; break;
-		case 152: return "Invalid numwant. Client requested more peers than allowed by tracker."; break;
-		case 200: return "info_hash not found in the database. Sent only by trackers that do not automatically include new hashes into the database."; break;
-		case 500: return "Client sent an eventless request before the specified time."; break;
+		case 100: return "Invalid request type: client request was not a HTTP GET.";
+		case 101: return "Missing info_hash.";
+		case 102: return "Missing peer_id.";
+		case 103: return "Missing port.";
+		case 150: return "Invalid infohash: infohash is not 20 bytes long.";
+		case 151: return "Invalid peerid: peerid is not 20 bytes long.";
+		case 152: return "Invalid numwant. Client requested more peers than allowed by tracker.";
+		case 200: return "info_hash not found in the database. Sent only by trackers that do not automatically include new hashes into the database.";
+		case 500: return "Client sent an eventless request before the specified time.";
 		default:  return "Generic Error";
 	}
 }
