@@ -50,7 +50,7 @@ class database {
 		std::queue<std::string> token_queue;
 
 		bool u_active, t_active, p_active, s_active, h_active, tok_active;
-		bool readonly, load_peerlists, clear_peerlists;
+		bool readonly, load_peerlists, clear_peerlists, peers_history, snatched_history;
 
 		// These locks prevent more than one thread from reading/writing the buffers.
 		// These should be held for the minimum time possible.
