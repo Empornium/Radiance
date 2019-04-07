@@ -34,7 +34,7 @@ mysqlpp::Connection* dbConnectionPool::grab() {
 	syslog(trace) << "MySQL connection grab called";
 	while (in_use_connections.size() >= mysql_connections) {
 		syslog(error) << "MySQL Connection Pool Exhausted: " << mysqlpp::ConnectionPool::size() << " (" << in_use_connections.size() << ")";;
-		sleep(1);
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 
 	syslog(trace) << "MySQL connection issued: " << mysqlpp::ConnectionPool::size() << " (" << in_use_connections.size() << ")";
@@ -46,7 +46,7 @@ mysqlpp::Connection* dbConnectionPool::grab() {
 			in_use_connections.insert(conn);
 	} else {
 			// Rate limiting here
-			sleep(5);
+			std::this_thread::sleep_for(std::chrono::seconds(5));
 	}
 	return conn;
 }
@@ -895,7 +895,7 @@ void database::do_flush(bool &active, std::queue<std::string> &queue, std::mutex
 				if (!query.exec()) {
 					syslog(error) << queue_name << " flush failed (" << queue.size() << " remain)";
 					pool->release(&conn);
-					sleep(3);
+					std::this_thread::sleep_for(std::chrono::seconds(3));
 					continue;
 				} else {
 					std::lock_guard<std::mutex> local_lock(lock);
@@ -908,12 +908,12 @@ void database::do_flush(bool &active, std::queue<std::string> &queue, std::mutex
 			catch (const mysqlpp::BadQuery &er) {
 				syslog(error) << "Query error: " << er.what() << " in flush " << queue_name << "s with a qlength: " << queue.front().size() << " queue size: " << queue.size();
 				pool->release(&conn);
-				sleep(3);
+				std::this_thread::sleep_for(std::chrono::seconds(3));
 				continue;
 			} catch (const mysqlpp::Exception &er) {
 				syslog(error) << "Query error: " << er.what() << " in flush " << queue_name << "s with a qlength: " << queue.front().size() << " queue size: " << queue.size();
 				pool->release(&conn);
-				sleep(3);
+				std::this_thread::sleep_for(std::chrono::seconds(3));
 				continue;
 			}
 		}
