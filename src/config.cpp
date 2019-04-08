@@ -112,9 +112,11 @@ void settings::init() {
 
 	// General Control
 	add("readonly", false);
+	add("anonymous", false);
 	add("clear_peerlists", true);
 	add("load_peerlists", false);
 	add("peers_history", true);
+	add("files_peers", true);
 	add("snatched_history", true);
 	add("daemonize", false);
 	add("syslog_path", "off");
