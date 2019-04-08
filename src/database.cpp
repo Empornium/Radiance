@@ -132,6 +132,7 @@ void database::load_config() {
 	load_peerlists   = conf->get_bool("load_peerlists");
 	peers_history    = conf->get_bool("peers_history");
 	snatched_history = conf->get_bool("snatched_history");
+	files_peers      = conf->get_bool("files_peers");
 }
 
 void database::reload_config() {
@@ -748,7 +749,7 @@ void database::flush_torrents() {
 }
 
 void database::flush_snatches() {
-	if (readonly || !snatched_history) {
+	if (readonly || (readonly && !snatched_history)) {
 		update_snatch_buffer.clear();
 		return;
 	}
@@ -772,7 +773,7 @@ void database::flush_snatches() {
 }
 
 void database::flush_peers() {
-	if (readonly) {
+	if (readonly || (readonly && !files_peers)) {
 		update_peer_light_buffer.clear();
 		update_peer_heavy_buffer.clear();
 		return;
@@ -833,7 +834,7 @@ void database::flush_peers() {
 }
 
 void database::flush_peer_hist() {
-	if (readonly || !peers_history) {
+	if (readonly || (readonly && !peers_history)) {
 		update_token_buffer.clear();
 		return;
 	}
