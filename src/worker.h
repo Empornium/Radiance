@@ -42,9 +42,10 @@ class worker {
 		unsigned int del_reason_lifetime;
 		unsigned int peers_timeout;
 		unsigned int numwant_limit;
-		bool keepalive_enabled;
+		bool keepalive_enabled, anonymous;
 		std::string site_password;
 		std::string report_password;
+		std::string anonymous_password;
 
 		std::mutex del_reasons_lock;
 		void load_config();
