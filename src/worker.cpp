@@ -41,6 +41,8 @@ void worker::load_config() {
 	keepalive_enabled = conf->get_uint("keepalive_timeout") != 0;
 	site_password = conf->get_str("site_password");
 	report_password = conf->get_str("report_password");
+	anonymous = conf->get_bool("anonymous");
+	anonymous_password = conf->get_str("anonymous_password");
 }
 
 void worker::reload_config() {
@@ -99,19 +101,38 @@ std::string worker::work(const std::string &input, std::string &ip, uint16_t &ip
 	// Get the passkey
 	std::string passkey;
 	passkey.reserve(32);
-	if (input[37] != '/') {
-		// just handle robots.txt if annouce is malformed.
-		// robots.txt requested?
-		if(input[11] == '.')
-			 return "User-agent: *\nDisallow: /";
-		return response_error("Malformed announce", client_opts);
-	}
 
-	for (; pos < 37; pos++) {
-		passkey.push_back(input[pos]);
-	}
+	// Check if we have anonymous function enabled.
+	// If that is the case, we use the default hash (set in configuration), to keep track of anonymous traffic.
+	// If the user doesn't exist in the database, it should be created, otherwise the tracker will still give a error.
+	if (!anonymous) {
+		if (input[37] != '/') {
+			// just handle robots.txt if annouce is malformed.
+			// robots.txt requested?
+			if(input[11] == '.')
+				return "User-agent: *\nDisallow: /";
+			return response_error("Malformed announce", client_opts);
+		}
 
-	pos = 38;
+		for (; pos < 37; pos++) {
+			passkey.push_back(input[pos]);
+		}
+
+		pos = 38;
+	} else {
+		if (input[37] != '/') {
+			if(input[11] == '.')
+				return "User-agent: *\nDisallow: /";
+
+			pos = 5;
+			passkey = anonymous_password;
+		} else {
+			for (; pos < 37; pos++) {
+				passkey.push_back(input[pos]);
+			}
+			pos = 38;
+		}
+	}
 
 	// Get the action
 	enum action_t {

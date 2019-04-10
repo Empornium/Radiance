@@ -113,6 +113,7 @@ void settings::init() {
 	// General Control
 	add("readonly", false);
 	add("anonymous", false);
+	add("anonymous_password", "00000000000000000000000000000000");
 	add("clear_peerlists", true);
 	add("load_peerlists", false);
 	add("peers_history", true);
