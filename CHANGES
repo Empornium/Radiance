@@ -39,7 +39,7 @@ CREATE TABLE `xbt_client_blacklist` (`id` int(10) unsigned NOT NULL AUTO_INCREME
 Add support for IPv6 listening socket
 Add support for unix domain listening socket
 Add IPv6 tracking and mixed swarms
-Add pointer to remember loction in leecher lists when selecting peers
+Add pointer to remember location in leecher lists when selecting peers
 Add support for personal, universal and sitewide doubleseed
 Add log to file support
 Add ability to fork to background as a daemon

@@ -107,7 +107,7 @@ std::string worker::work(const std::string &input, std::string &ip, uint16_t &ip
 	// If the user doesn't exist in the database, it should be created, otherwise the tracker will still give a error.
 	if (!anonymous) {
 		if (input[37] != '/') {
-			// just handle robots.txt if annouce is malformed.
+			// just handle robots.txt if announce is malformed.
 			// robots.txt requested?
 			if(input[11] == '.')
 				return "User-agent: *\nDisallow: /";
@@ -824,7 +824,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 
 				// Add seeders
 				while (i != end && found_peers < numwant) {
-					// Warap around
+					// Wrap around
 					if (i == tor.seeders.end()) {
 						i = tor.seeders.begin();
 					}
@@ -880,7 +880,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 
 			// Add Leechers
 			while (i != end && found_peers < numwant) {
-				// Warap around
+				// Wrap around
 				if (i == tor.leechers.end()) {
 					i = tor.leechers.begin();
 				}
@@ -1639,7 +1639,7 @@ bool worker::peer_is_visible(user_ptr &u, peer *p) {
 
 std::string worker::get_host(params_type &headers){
 
-	std::string host = "unkown";
+	std::string host = "unknown";
 	// Search for host or x-forwarded-host headers
 	auto head_itr = headers.find("x-forwarded-host");
 	if (head_itr == headers.end())
