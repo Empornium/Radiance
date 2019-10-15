@@ -105,7 +105,7 @@ int connection_mother::create_listen_socket() {
 				syslog(info) << "Enabled IPv4/IPv6 Dual Stack mode.";
 			}
 		} else {
-			syslog(fatal) << "Unkown address family.";
+			syslog(fatal) << "Unknown address family.";
 			return -1;
 		}
 
@@ -138,7 +138,7 @@ int connection_mother::create_listen_socket() {
 		} else if (address->sa_family == AF_UNIX) {
 			type = "Unix Domain Socket";
 		} else {
-			type = "Unkown Domain Socket";
+			type = "Unknown Domain Socket";
 		}
 		syslog(fatal) << "Bind failed on " << type << ": " << strerror(errno) << " (" << errno << ")";
 		return -1;
