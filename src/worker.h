@@ -43,6 +43,7 @@ class worker {
 		unsigned int peers_timeout;
 		unsigned int numwant_limit;
 		bool keepalive_enabled, anonymous;
+		std::string real_ip_header;
 		std::string site_password;
 		std::string report_password;
 		std::string anonymous_password;

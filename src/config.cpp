@@ -81,6 +81,7 @@ void settings::init() {
 	add("max_read_buffer", 4096u);
 	add("connection_timeout", 10u);
 	add("keepalive_timeout", 0u);
+	add("real_ip_header", "");
 
 	// Tracker requests
 	add("announce_interval", 1800u);
