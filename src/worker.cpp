@@ -591,7 +591,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 		memset(&hint, 0, sizeof hint);
 		hint.ai_family = PF_UNSPEC;
 		hint.ai_flags = AI_NUMERICHOST;
-		getaddrinfo(ip.c_str(), NULL, &hint, &res);
+		getaddrinfo(param_ip->second.c_str(), NULL, &hint, &res);
 		if(res->ai_family == AF_INET) {
 			ipv4 = param_ip->second;
 		} else if (res->ai_family == AF_INET6) {
