@@ -39,6 +39,8 @@ void worker::load_config() {
 	peers_timeout = conf->get_uint("peers_timeout");
 	numwant_limit = conf->get_uint("numwant_limit");
 	keepalive_enabled = conf->get_uint("keepalive_timeout") != 0;
+	real_ip_header = conf->get_str("real_ip_header");
+	std::transform(real_ip_header.begin(), real_ip_header.end(), real_ip_header.begin(), ::tolower);
 	site_password = conf->get_str("site_password");
 	report_password = conf->get_str("report_password");
 	anonymous = conf->get_bool("anonymous");
@@ -600,28 +602,29 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 		freeaddrinfo(res);
 	}
 
-	auto header_ip = headers.find("x-forwarded-for");
-	if (header_ip != headers.end()) {
-		std::string ip = header_ip->second;
-		ip = ip.substr(0, ip.find(','));
-		struct addrinfo hint, *res = NULL;
-		memset(&hint, 0, sizeof hint);
-		hint.ai_family = PF_UNSPEC;
-		hint.ai_flags = AI_NUMERICHOST;
-		int err = getaddrinfo(ip.c_str(), NULL, &hint, &res);
-		if (err != 0) {
-			syslog(trace) << "Error parsing x-forwarded-for header: "
-			<< header_ip->second << " " << gai_strerror(err);
-		} else {
-
-			if(res->ai_family == AF_INET) {
-				ipv4 = ip;
-				public_ipv4=ip;
-			} else if (res->ai_family == AF_INET6) {
-				ipv6 = ip;
-				public_ipv6=ip;
+	if (!real_ip_header.empty()) {
+		auto header_ip = headers.find(real_ip_header);
+		if (header_ip != headers.end()) {
+			std::string ip = header_ip->second;
+			ip = ip.substr(0, ip.find(','));
+			struct addrinfo hint, *res = NULL;
+			memset(&hint, 0, sizeof hint);
+			hint.ai_family = PF_UNSPEC;
+			hint.ai_flags = AI_NUMERICHOST;
+			int err = getaddrinfo(ip.c_str(), NULL, &hint, &res);
+			if (err != 0) {
+				syslog(trace) << "Error parsing " << real_ip_header << " header: "
+							  << header_ip->second << " " << gai_strerror(err);
+			} else {
+				if (res->ai_family == AF_INET) {
+					ipv4 = ip;
+					public_ipv4 = ip;
+				} else if (res->ai_family == AF_INET6) {
+					ipv6 = ip;
+					public_ipv6 = ip;
+				}
+				freeaddrinfo(res);
 			}
-			freeaddrinfo(res);
 		}
 	}
 
