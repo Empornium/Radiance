@@ -12,6 +12,7 @@
 #include "site_comm.h"
 #include "config.h"
 #include "logger.h"
+#include "misc_functions.h"
 
 // Define the connection mother (first half) and connection middlemen (second half)
 
@@ -23,11 +24,15 @@ connection_mother::connection_mother(worker * worker_obj, site_comm * sc_obj, sc
 	// Handle config stuff first
 	load_config();
 
-	listen_socket = create_listen_socket();
-	if (listen_socket == -1) exit(EXIT_FAILURE);
+	if (create_listen_socket() == RESULT_ERR) exit(EXIT_FAILURE);
 
-	listen_event.set<connection_mother, &connection_mother::handle_connect>(this);
-	listen_event.start(listen_socket, ev::READ);
+	for (const int listen_socket: listen_sockets) {
+		ev::io *listen_event = new ev::io;
+
+		listen_event->set<connection_mother, &connection_mother::handle_connect>(this);
+		listen_event->start(listen_socket, ev::READ);
+		listen_events.insert(std::pair<int, ev::io*>(listen_socket, listen_event));
+	}
 	// Create libev timer
 	schedule_event.set<schedule, &schedule::handle>(sched);
 	schedule_event.start(sched->schedule_interval, sched->schedule_interval); // After interval, every interval
@@ -35,7 +40,7 @@ connection_mother::connection_mother(worker * worker_obj, site_comm * sc_obj, sc
 
 void connection_mother::load_config() {
 	listen_port	= conf->get_uint("listen_port");
-	listen_host	= conf->get_str("listen_host");
+	listen_hosts       = split(conf->get_str("listen_host"), ' ');
 	max_connections    = conf->get_uint("max_connections");
 	max_middlemen      = conf->get_uint("max_middlemen");
 	connection_timeout = conf->get_uint("connection_timeout");
@@ -47,89 +52,107 @@ void connection_mother::load_config() {
 void connection_mother::reload_config() {
 	unsigned int old_listen_port = listen_port;
 	unsigned int old_max_connections = max_connections;
+	std::vector<std::string> old_listen_hosts = listen_hosts;
+	std::vector<int> old_listen_sockets = listen_sockets;
 	load_config();
 	if (old_listen_port != listen_port) {
 		syslog(info) << "Changing listen port from " << old_listen_port << " to " << listen_port;
-		int new_listen_socket = create_listen_socket();
-		if (new_listen_socket != 0) {
-			listen_event.stop();
-			listen_event.start(new_listen_socket, ev::READ);
-			close(listen_socket);
-			listen_socket = new_listen_socket;
+
+		if (create_listen_socket() == RESULT_OK) {
+			for (auto const &it: listen_events) {
+				ev::io* listen_event = it.second;
+				listen_event->stop();
+				delete listen_event;
+			}
+			listen_events.clear();
+			for (const int old_listen_socket: old_listen_sockets) {
+				close(old_listen_socket);
+				auto i = std::find(listen_sockets.begin(), listen_sockets.end(), old_listen_socket);
+				listen_sockets.erase(i);
+			}
+
+			for (const int listen_socket: listen_sockets) {
+				ev::io* listen_event = new ev::io;
+
+				listen_event->set<connection_mother, &connection_mother::handle_connect>(this);
+				listen_event->start(listen_socket, ev::READ);
+				listen_events.insert(std::pair<int, ev::io*>(listen_socket, listen_event));
+			}
 		} else {
-			syslog(info) << "Couldn't create new listen socket when reloading config";
+			syslog(error) << "Couldn't create new listen socket when reloading config";
 		}
-	} else if (old_max_connections != max_connections) {
-		listen(listen_socket, max_connections);
+	}
+
+	if (old_listen_hosts != listen_hosts) {
+		std::ostringstream old_imploded, new_imploded;
+		const char* delim = " ";
+		std::copy(old_listen_hosts.begin(), old_listen_hosts.end(), std::ostream_iterator<std::string>(old_imploded, delim));
+		std::copy(listen_hosts.begin(), listen_hosts.end(), std::ostream_iterator<std::string>(new_imploded, delim));
+		syslog(info) << "Changing listen host from \"" << trim(old_imploded.str()) << "\" to \"" << trim(new_imploded.str()) << "\"";
+
+		for (auto const &it: listen_events) {
+			ev::io* listen_event = it.second;
+			listen_event->stop();
+			delete listen_event;
+		}
+		listen_events.clear();
+		for (const int old_listen_socket: old_listen_sockets) {
+			close(old_listen_socket);
+		}
+		listen_sockets.clear();
+
+		if (create_listen_socket() == RESULT_OK) {
+			for (const int listen_socket: listen_sockets) {
+				ev::io* listen_event = new ev::io;
+
+				listen_event->set<connection_mother, &connection_mother::handle_connect>(this);
+				listen_event->start(listen_socket, ev::READ);
+				listen_events.insert(std::pair<int, ev::io*>(listen_socket, listen_event));
+			}
+		} else {
+			syslog(error) << "Couldn't create new listen socket when reloading config";
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	if (old_max_connections != max_connections) {
+		for (const int listen_socket: listen_sockets) {
+			listen(listen_socket, max_connections);
+		}
 	}
 }
 
-int connection_mother::create_listen_socket() {
-	int new_listen_socket = 0;
-	sockaddr_un  unix_address;
-	sockaddr* address;
-	size_t address_len;
-
-	memset(&unix_address,  0, sizeof(unix_address));
-
-	if (!strncmp(listen_host.c_str(), "unix://", strlen("unix://"))) {
-		// Prepare a Unix socket
-		unix_address.sun_family = AF_UNIX;
-		strcpy(unix_address.sun_path, listen_host.c_str());
-		syslog(info) << "Listening with UNIX socket.";
-		address = (sockaddr*) &unix_address;
-		address_len = sizeof(*address);
-
-	} else {
-		// Prepare an Internet socket
-		int opt = 0;
-		struct addrinfo hints, *res;
-		memset(&hints, 0, sizeof hints);
-		hints.ai_family = PF_UNSPEC;
-		hints.ai_socktype = SOCK_STREAM;
-		getaddrinfo(listen_host.c_str(), std::to_string(listen_port).c_str(), &hints, &res);
-		new_listen_socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-
-		// IPv4 address was found
-		if (res->ai_family == PF_INET) {
-			syslog(info) << "Listening with IPv4 INET socket.";
-
-		// IPv6 address was found
-		} else if(res->ai_family == PF_INET6) {
-			syslog(info) << "Listening with IPv6 INET socket.";
-
-			// Attempt to enable Dual Stack
-			if (setsockopt(new_listen_socket, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt)) < 0) {
-				syslog(fatal) << "Insufficient OS support for Dual Stacking.";
-			} else {
-				syslog(info) << "Enabled IPv4/IPv6 Dual Stack mode.";
-			}
-		} else {
-			syslog(fatal) << "Unknown address family.";
-			return -1;
-		}
-
-		address = res->ai_addr;
-		address_len = res->ai_addrlen;
-		freeaddrinfo(res);
+int connection_mother::socket_set_non_block(int fd) {
+	// Set non-blocking
+	int flags = fcntl(fd, F_GETFL);
+	if (flags == -1) {
+		syslog(info) << "Could not get socket flags: " << strerror(errno);
+		return RESULT_ERR;
+	}
+	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+		syslog(info) << "Could not set non-blocking: " << strerror(errno);
+		return RESULT_ERR;
 	}
 
-	// Check for socket
-	if (new_listen_socket == -1) {
-		syslog(fatal) << "Failed to open socket.";
-		return -1;
-	}
+	return RESULT_OK;
+}
+
+int connection_mother::socket_set_reuse_addr(int fd) {
+	int yes = 1;
 
 	// Stop old sockets from hogging the port
-	int yes = 1;
-	if (setsockopt(new_listen_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
 		syslog(fatal) << "Could not reuse socket: " << strerror(errno);
-		return -1;
+		return RESULT_ERR;
 	}
 
+	return RESULT_OK;
+}
+
+int connection_mother::socket_listen(int s, struct sockaddr *address, socklen_t address_len, int backlog) {
 	// Bind
-	if (bind(new_listen_socket, address, address_len) == -1) {
-		close(new_listen_socket);
+	if (bind(s, address, address_len) == -1) {
+		close(s);
 		std::string type;
 		if (address->sa_family == AF_INET6) {
 			type = "IPv6 Internet Socket";
@@ -141,27 +164,162 @@ int connection_mother::create_listen_socket() {
 			type = "Unknown Domain Socket";
 		}
 		syslog(fatal) << "Bind failed on " << type << ": " << strerror(errno) << " (" << errno << ")";
-		return -1;
+		return RESULT_ERR;
 	}
 
 	// Listen
-	if (listen(new_listen_socket, max_connections) == -1) {
+	if (listen(s, backlog) == -1) {
 		syslog(info) << "Listen failed: " << strerror(errno);
-		return -1;
+		return RESULT_ERR;
 	}
 
-	// Set non-blocking
-	int flags = fcntl(new_listen_socket, F_GETFL);
-	if (flags == -1) {
-		syslog(info) << "Could not get socket flags: " << strerror(errno);
-		return -1;
+	return RESULT_OK;
+}
+
+int connection_mother::create_tcp_server(unsigned int port, const std::string &ip)
+{
+	struct addrinfo hints, *res, *p;
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
+	const char *bindaddr = (ip.empty() || ip == "*") ? NULL : ip.c_str();
+	getaddrinfo(bindaddr, std::to_string(port).c_str(), &hints, &res);
+
+	for (p = res; p != NULL; p = p->ai_next) {
+		int new_listen_socket = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+
+		// Check for socket
+		if (new_listen_socket == -1) {
+			syslog(fatal) << "Failed to open socket.";
+			return RESULT_ERR;
+		}
+
+		char ip_value[INET6_ADDRSTRLEN];
+
+		// IPv4 address was found
+		if (p->ai_family == PF_INET) {
+			struct sockaddr_in *s = (struct sockaddr_in *)p->ai_addr;
+			inet_ntop(AF_INET, (void*)&(s->sin_addr), ip_value, sizeof(ip_value));
+			syslog(info) << "Listening with IPv4 INET socket on " << ip_value << ":" << port << ".";
+
+			// IPv6 address was found
+		} else if (p->ai_family == PF_INET6) {
+			struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)p->ai_addr;
+			inet_ntop(AF_INET6, (void*)&(s6->sin6_addr), ip_value, sizeof(ip_value));
+			syslog(info) << "Listening with IPv6 INET socket on [" << ip_value << "]:" << port << ".";
+
+#if defined IPV6_V6ONLY
+			int yes = 1;
+			// Attempt to disable Dual Stack
+			if (setsockopt(new_listen_socket, IPPROTO_IPV6, IPV6_V6ONLY, &yes, sizeof(yes)) == -1) {
+				syslog(fatal) << "Failed to disable IPv6 Dual Stack mode: " << strerror(errno);
+				return RESULT_ERR;
+			}
+#endif
+		} else {
+			syslog(fatal) << "Unknown address family.";
+			return RESULT_ERR;
+		}
+
+		if (socket_set_non_block(new_listen_socket) == RESULT_ERR) {
+			return RESULT_ERR;
+		}
+
+		// Stop old sockets from hogging the port
+		if (socket_set_reuse_addr(new_listen_socket) == RESULT_ERR) {
+			return RESULT_ERR;
+		}
+
+		if (socket_listen(new_listen_socket, p->ai_addr, p->ai_addrlen, max_connections) == RESULT_ERR) {
+			return RESULT_ERR;
+		}
+
+		listen_sockets.push_back(new_listen_socket);
 	}
-	if (fcntl(new_listen_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
-		syslog(info) << "Could not set non-blocking: " << strerror(errno);
-		return -1;
+	freeaddrinfo(res);
+
+	return RESULT_OK;
+}
+
+int connection_mother::create_unix_server(const std::string &path)
+{
+	struct sockaddr_un unix_address;
+	mode_t mode;
+
+	// Remove previous socket if exists
+	unlink(path.c_str());
+
+	int new_listen_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+
+	// Check for socket
+	if (new_listen_socket == -1) {
+		syslog(fatal) << "Failed to open UNIX socket: " << strerror(errno);
+		return RESULT_ERR;
 	}
 
-	return new_listen_socket;
+	if (socket_set_non_block(new_listen_socket) == RESULT_ERR) {
+		return RESULT_ERR;
+	}
+
+	if (socket_set_reuse_addr(new_listen_socket) == RESULT_ERR) {
+		return RESULT_ERR;
+	}
+
+	memset(&unix_address, 0, sizeof(unix_address));
+
+	// Prepare a Unix socket
+	unix_address.sun_family = AF_UNIX;
+	strncpy(unix_address.sun_path, path.c_str(), sizeof(unix_address.sun_path)-1);
+	syslog(info) << "Listening with UNIX socket.";
+
+	if (socket_listen(new_listen_socket, (struct sockaddr*)&unix_address, sizeof(unix_address), max_connections) == RESULT_ERR) {
+		return RESULT_ERR;
+	}
+
+	mode = (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
+
+	if (chmod(path.c_str(), mode) == -1) {
+		syslog(fatal) << "chmod() \"" << path << "\" failed";
+		return RESULT_ERR;
+	}
+
+	listen_sockets.push_back(new_listen_socket);
+
+	return RESULT_OK;
+}
+
+int connection_mother::create_listen_socket()
+{
+	std::string listen_host_conf = conf->get_str("listen_host");
+	if (trim(listen_host_conf).empty() || listen_host_conf == "*") {
+		if (create_tcp_server(listen_port, "*") == RESULT_ERR) {
+			return RESULT_ERR;
+		}
+	} else {
+		for (const std::string &listen_host: listen_hosts) {
+			if (listen_host.empty()) {
+				continue;
+			}
+
+			if (!strncmp(listen_host.c_str(), "unix:", strlen("unix:"))) {
+				if (create_unix_server(listen_host.substr(strlen("unix:"))) == RESULT_ERR) {
+					return RESULT_ERR;
+				}
+			} else {
+				if (create_tcp_server(listen_port, listen_host) == RESULT_ERR) {
+					return RESULT_ERR;
+				}
+			}
+		}
+	}
+
+	if (listen_sockets.empty()) {
+		syslog(fatal) << "Configured to not listen anywhere.";
+		return RESULT_ERR;
+	}
+
+	return RESULT_OK;
 }
 
 const void connection_mother::run() {
@@ -174,13 +332,21 @@ void connection_mother::handle_connect(ev::io &watcher, int events_flags) {
 	if (stats.open_connections < max_middlemen) {
 		stats.opened_connections++;
 		stats.open_connections++;
-		new connection_middleman(listen_socket, work, this);
+		new connection_middleman(watcher.fd, work, this);
 	}
 }
 
 connection_mother::~connection_mother()
 {
-	close(listen_socket);
+	for (auto const &it: listen_events) {
+		ev::io* listen_event = it.second;
+		listen_event->stop();
+		delete listen_event;
+	}
+
+	for (const int listen_socket: listen_sockets) {
+		close(listen_socket);
+	}
 }
 
 
@@ -229,15 +395,6 @@ connection_middleman::~connection_middleman() {
 	stats.open_connections--;
 }
 
-void *get_in_addr(struct sockaddr *sa)
-{
-	if (sa->sa_family == AF_INET) {
-	return &(((struct sockaddr_in*)sa)->sin_addr);
-	}
-
-	return &(((struct sockaddr_in6*)sa)->sin6_addr);
-}
-
 // Handler to read data from the socket, called by event loop when socket is readable
 void connection_middleman::handle_read(ev::io &watcher, int events_flags) {
 	char buffer[mother->max_read_buffer + 1];
@@ -264,18 +421,34 @@ void connection_middleman::handle_read(ev::io &watcher, int events_flags) {
 			shutdown(connect_sock, SHUT_RD);
 			response = response_error("GET string too long", client_opts);
 		} else {
-			char ip[INET_ADDRSTRLEN];
-			sockaddr_storage client_addr;
+			struct sockaddr_storage client_addr;
+			char ip[INET6_ADDRSTRLEN];
 			socklen_t addr_len = sizeof(client_addr);
-			uint16_t ip_ver = 4;
-			getpeername(connect_sock, (sockaddr *) &client_addr, &addr_len);
-			if(client_addr.ss_family == AF_INET) {
+			uint16_t ip_ver = 0;
+			getpeername(connect_sock, (struct sockaddr *) &client_addr, &addr_len);
+			std::string ip_str;
+			if (client_addr.ss_family == AF_INET) {
+				struct sockaddr_in *s = (struct sockaddr_in *)&client_addr;
 				ip_ver = 4;
-			} else {
+				inet_ntop(AF_INET, (void*)&(s->sin_addr), ip, sizeof(ip));
+				ip_str = ip;
+			} else if (client_addr.ss_family == AF_INET6) {
+				struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)&client_addr;
 				ip_ver = 6;
+				inet_ntop(AF_INET6, (void*)&(s6->sin6_addr), ip, sizeof(ip));
+				ip_str = ip;
+
+				// Handle IPv6-mapped IPv4
+				if (ip_str.substr(0, 7) == "::ffff:") {
+					ip_ver = 4;
+					ip_str = ip_str.substr(7);
+				}
+			} else if (client_addr.ss_family == AF_UNIX) {
+				ip_str = ""; // Empty, should be taken from additional headers
+			} else {
+				shutdown(connect_sock, SHUT_RD);
+				response = response_error("Unknown Domain Socket", client_opts);
 			}
-			inet_ntop(client_addr.ss_family, get_in_addr((struct sockaddr *)&client_addr), ip, sizeof ip);
-			std::string ip_str = ip;
 
 			//--- CALL WORKER
 			response = work->work(request, ip_str, ip_ver, client_opts);

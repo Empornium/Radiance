@@ -74,7 +74,7 @@ options::~options() {
 void settings::init() {
 	// Internal stuff
 	add("listen_port", 2710u);
-	add("listen_host", "0.0.0.0");
+	add("listen_host", "*");
 	add("listen_path", "");
 	add("max_connections", 1024u);
 	add("max_middlemen", 20000u);

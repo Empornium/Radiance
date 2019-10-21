@@ -11,6 +11,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#define RESULT_OK 0
+#define RESULT_ERR -1
+
 // Forward declarations
 class worker;
 class schedule;
@@ -37,13 +40,18 @@ THE WORKER
 class connection_mother {
 	private:
 		void load_config();
+		int socket_set_non_block(int fd);
+		int socket_set_reuse_addr(int fd);
+		int socket_listen(int s, struct sockaddr *address, socklen_t address_len, int backlog);
+		int create_tcp_server(unsigned int port, const std::string &bindaddr);
+		int create_unix_server(const std::string &path);
 		unsigned int listen_port;
 		unsigned int max_connections;
-		std::string listen_host;
+		std::vector<std::string> listen_hosts;
+		std::vector<int> listen_sockets;
 
-		int listen_socket;
 		worker * work;
-		ev::io listen_event;
+		std::map<int, ev::io*> listen_events;
 		ev::timer schedule_event;
 
 	public:
