@@ -835,7 +835,7 @@ void database::flush_peers() {
 
 void database::flush_peer_hist() {
 	if (readonly || (readonly && !peers_history)) {
-		update_token_buffer.clear();
+		update_peer_hist_buffer.clear();
 		return;
 	}
 	std::string sql;
