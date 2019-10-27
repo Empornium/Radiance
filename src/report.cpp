@@ -10,7 +10,7 @@
 std::string report(params_type &params, user_list &users_list, domain_list &domains_list, client_opts_t &client_opts) {
 	std::stringstream output;
 	std::string action = params["get"];
-	if (action == "") {
+	if (action.empty()) {
 		output << "Invalid action\n";
 	} else if (action == "stats") {
 		time_t uptime = time(NULL) - stats.start_time;
@@ -63,7 +63,7 @@ std::string report(params_type &params, user_list &users_list, domain_list &doma
 		output << "}" << std::endl;
 	} else if (action == "user") {
 		std::string key = params["key"];
-		if (key == "") {
+		if (key.empty()) {
 			output << "Invalid action\n";
 		} else {
 			user_list::const_iterator u = users_list.find(key);
