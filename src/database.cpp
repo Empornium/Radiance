@@ -19,7 +19,7 @@
 dbConnectionPool::dbConnectionPool() {
 	load_config();
 
-	if (mysql_db == "") {
+	if (mysql_db.empty()) {
 		syslog(info) << "No database selected";
 		return;
 	}
@@ -210,7 +210,7 @@ void database::load_torrents(torrent_list &torrents) {
 		for (size_t i = 0; i < num_rows; i++) {
 			std::string info_hash;
 			res[i][1].to_string(info_hash);
-			if (info_hash == "") {
+			if (info_hash.empty()) {
 				continue;
 			}
 			mysqlpp::sql_enum free_torrent(res[i][2]);
@@ -603,14 +603,14 @@ void database::load_blacklist(std::vector<std::string> &blacklist) {
 }
 
 void database::record_token(const std::string &record) {
-	if (update_token_buffer != "") {
+	if (!update_token_buffer.empty()) {
 		update_token_buffer += ",";
 	}
 	update_token_buffer += record;
 }
 
 void database::record_user(const std::string &record) {
-	if (update_user_buffer != "") {
+	if (!update_user_buffer.empty()) {
 		update_user_buffer += ",";
 	}
 	update_user_buffer += record;
@@ -618,7 +618,7 @@ void database::record_user(const std::string &record) {
 
 void database::record_torrent(const std::string &record) {
 	std::lock_guard<std::mutex> tb_lock(torrent_buffer_lock);
-	if (update_torrent_buffer != "") {
+	if (!update_torrent_buffer.empty()) {
 		update_torrent_buffer += ",";
 	}
 	update_torrent_buffer += record;
@@ -626,7 +626,7 @@ void database::record_torrent(const std::string &record) {
 
 void database::record_peer(const std::string &record, const std::string &ipv4, const std::string &ipv6, int port, const std::string &peer_id, const std::string &useragent) {
 	std::lock_guard<std::mutex> pb_lock(peer_queue_lock);
-	if (update_peer_heavy_buffer != "") {
+	if (!update_peer_heavy_buffer.empty()) {
 		update_peer_heavy_buffer += ",";
 	}
 	// Null query for quoting
@@ -637,7 +637,7 @@ void database::record_peer(const std::string &record, const std::string &ipv4, c
 }
 void database::record_peer(const std::string &record, const std::string &peer_id) {
 	std::lock_guard<std::mutex> pb_lock(peer_queue_lock);
-	if (update_peer_light_buffer != "") {
+	if (!update_peer_light_buffer.empty()) {
 		update_peer_light_buffer += ",";
 	}
 	// Null query for quoting
@@ -649,7 +649,7 @@ void database::record_peer(const std::string &record, const std::string &peer_id
 
 void database::record_peer_hist(const std::string &record, const std::string &peer_id, const std::string &ipv4, const std::string &ipv6, int tid){
 	std::lock_guard<std::mutex> ph_lock(peer_hist_queue_lock);
-	if (update_peer_hist_buffer != "") {
+	if (!update_peer_hist_buffer.empty()) {
 		update_peer_hist_buffer += ",";
 	}
 	// Null query for quoting
@@ -659,7 +659,7 @@ void database::record_peer_hist(const std::string &record, const std::string &pe
 }
 
 void database::record_snatch(const std::string &record, const std::string &ipv4, const std::string &ipv6) {
-	if (update_snatch_buffer != "") {
+	if (!update_snatch_buffer.empty()) {
 		update_snatch_buffer += ",";
 	}
 	// Null query for quoting
@@ -692,7 +692,7 @@ void database::flush_users() {
 	if (qsize > 0) {
 		syslog(trace) << "User flush queue size: " << qsize << ", next query length: " << user_queue.front().size();
 	}
-	if (update_user_buffer == "") {
+	if (update_user_buffer.empty()) {
 		return;
 	}
 	// Similar to flush_torrents this can actually insert a new user entry into the DB.
@@ -725,7 +725,7 @@ void database::flush_torrents() {
 	if (qsize > 0) {
 		syslog(trace) << "Torrent flush queue size: " << qsize << ", next query length: " << torrent_queue.front().size();
 	}
-	if (update_torrent_buffer == "") {
+	if (update_torrent_buffer.empty()) {
 		return;
 	}
 
@@ -759,7 +759,7 @@ void database::flush_snatches() {
 	if (qsize > 0) {
 		syslog(trace) << "Snatch flush queue size: " << qsize << ", next query length: " << snatch_queue.front().size();
 	}
-	if (update_snatch_buffer == "" ) {
+	if (update_snatch_buffer.empty() ) {
 		return;
 	}
 	sql = "INSERT INTO xbt_snatched (uid, fid, tstamp, ipv4, ipv6) VALUES " + update_snatch_buffer;
@@ -786,11 +786,11 @@ void database::flush_peers() {
 	}
 
 	// Nothing to do
-	if (update_peer_light_buffer == "" && update_peer_heavy_buffer == "") {
+	if (update_peer_light_buffer.empty() && update_peer_heavy_buffer.empty()) {
 		return;
 	}
 
-	if (update_peer_heavy_buffer != "") {
+	if (!update_peer_heavy_buffer.empty()) {
 		// Because xfu inserts are slow and ram is not infinite we need to
 		// limit this queue's size
 		// xfu will be messed up if the light query inserts a new row,
@@ -811,7 +811,7 @@ void database::flush_peers() {
 		update_peer_heavy_buffer.clear();
 		sql.clear();
 	}
-	if (update_peer_light_buffer != "") {
+	if (!update_peer_light_buffer.empty()) {
 		// See comment above
 		if (qsize >= 1000) {
 			peer_queue.pop();
@@ -840,7 +840,7 @@ void database::flush_peer_hist() {
 	}
 	std::string sql;
 	std::lock_guard<std::mutex> ph_lock(peer_hist_queue_lock);
-	if (update_peer_hist_buffer == "") {
+	if (update_peer_hist_buffer.empty()) {
 		return;
 	}
 
@@ -865,7 +865,7 @@ void database::flush_tokens() {
 	if (qsize > 0) {
 		syslog(trace) << "Token flush queue size: " << qsize << ", next query length: " << token_queue.front().size();
 	}
-	if (update_token_buffer == "") {
+	if (update_token_buffer.empty()) {
 		return;
 	}
 	sql = "INSERT INTO users_freeleeches (UserID, TorrentID, Downloaded, Uploaded) VALUES " + update_token_buffer +
@@ -888,7 +888,7 @@ void database::do_flush(bool &active, std::queue<std::string> &queue, std::mutex
 			mysqlpp::ScopedConnection conn(*pool, true);
 			try {
 				std::string sql = queue.front();
-				if (sql == "") {
+				if (sql.empty()) {
 					queue.pop();
 					queue_size--;
 					continue;

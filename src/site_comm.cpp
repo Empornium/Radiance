@@ -37,7 +37,7 @@ bool site_comm::all_clear() {
 void site_comm::expire_token(int torrent, int user) {
 	std::stringstream token_pair;
 	token_pair << user << ':' << torrent;
-	if (expire_token_buffer != "") {
+	if (!expire_token_buffer.empty()) {
 		expire_token_buffer += ",";
 	}
 	expire_token_buffer += token_pair.str();
@@ -62,7 +62,7 @@ void site_comm::flush_tokens()
 	if (qsize > 0) {
 		syslog(trace) << "Token expire queue size: " << qsize;
 	}
-	if (expire_token_buffer == "") {
+	if (expire_token_buffer.empty()) {
 		return;
 	}
 	token_queue.push(expire_token_buffer);
