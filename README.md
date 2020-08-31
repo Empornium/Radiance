@@ -42,7 +42,7 @@ sudo make install
 ```
 pkg update
 pkg install autoconf automake autotools boost-libs clang35 gcc8 git gmake libev llvm35 mysql++-mysql56 google-perftools
-git clone https://github.com/SebbaGerra/Radiance.git
+git clone https://github.com/Empornium/Radiance.git
 cd Radiance/ && autoreconf -i && ./configure --with-tcmalloc && make && make install
 ```
 
