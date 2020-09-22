@@ -17,12 +17,13 @@ Also required for debug builds:
 
 ### Standalone Installation
 
-* Create the following tables:
+* Create the following tables (see install/radiance.sql):
  - `options`
  - `torrents`
- - `users_freeleeches`
- - `users_slots`
+ - `users`
  - `users_main`
+ - `users_slots`
+ - `users_freeleeches`
  - `xbt_client_blacklist`
  - `xbt_files_users`
  - `xbt_peers_history`

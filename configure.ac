@@ -40,6 +40,9 @@ AC_PROG_CXX
 AC_CONFIG_FILES([Makefile src/Makefile])
 AC_LANG([C++])
 AX_CXX_COMPILE_STDCXX(11, noext, mandatory)
+
+# -----------------------------------------------------------------------------
+# Libraries
 AX_BOOST_BASE([1.55], [], [AC_MSG_ERROR(Need boost >= 1.55)])
 AX_BOOST_IOSTREAMS
 AX_BOOST_SYSTEM
@@ -51,6 +54,29 @@ AX_PTHREAD([], AC_MSG_FAILURE([pthread library is required]))
 EV_DEVEL
 MYSQL_C_API_LOCATION
 MYSQLPP_DEVEL
+
+# -----------------------------------------------------------------------------
+# libcap
+PKG_CHECK_MODULES(
+    [LIBCAP],
+    [libcap],
+    [AC_CHECK_LIB([cap], [cap_get_proc, cap_set_proc],
+        [AC_CHECK_HEADER(
+            [sys/capability.h],
+            [have_libcap=yes],
+            [have_libcap=no]
+        )],
+        [have_libcap=no]
+    )],
+    [have_libcap=no]
+)
+
+if test "${have_libcap}" = "yes"; then
+    LIBCAP_CFLAGS="${LIBCAP_CFLAGS}"
+    LIBCAP_LIBS="${LIBCAP_LIBS}"
+else
+    AC_MSG_ERROR([libcap required but not found.])
+fi
 
 # -----------------------------------------------------------------------------
 # memory allocation library
@@ -69,6 +95,8 @@ else
     fi
 fi
 
+# -----------------------------------------------------------------------------
+# Debug build
 AC_ARG_ENABLE([debug],
   [  --enable-debug           build with additional debugging code],
   [

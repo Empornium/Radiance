@@ -11,7 +11,7 @@
 class dbConnectionPool : public mysqlpp::ConnectionPool {
 	private:
 		void load_config();
-		unsigned int mysql_port, mysql_connections, mysql_timeout;
+		unsigned int mysql_port, mysql_connections, mysql_timeout, mysql_retry;
 		std::string mysql_db, mysql_host, mysql_username, mysql_password;
 		std::unordered_set<mysqlpp::Connection*> in_use_connections;
 		std::mutex pool_lock;
@@ -51,11 +51,18 @@ class database {
 
 		bool u_active, t_active, p_active, s_active, h_active, tok_active;
 		bool readonly, load_peerlists, clear_peerlists, peers_history, snatched_history, files_peers;
+		unsigned int mysql_retry;
 
 		// These locks prevent more than one thread from reading/writing the buffers.
 		// These should be held for the minimum time possible.
-		std::mutex user_queue_lock;
+		std::mutex user_buffer_lock;
 		std::mutex torrent_buffer_lock;
+		std::mutex peer_buffer_lock;
+		std::mutex peer_hist_buffer_lock;
+		std::mutex snatch_buffer_lock;
+		std::mutex token_buffer_lock;
+
+		std::mutex user_queue_lock;
 		std::mutex torrent_queue_lock;
 		std::mutex peer_queue_lock;
 		std::mutex peer_hist_queue_lock;

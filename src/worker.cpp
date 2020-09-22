@@ -95,6 +95,7 @@ std::string worker::work(const std::string &input, std::string &ip, uint16_t &ip
 
 	//---------- Parse request - ugly but fast. Using substr exploded.
 	if (input_length < 60) { // Way too short to be anything useful
+		syslog(error) << "truncated input";
 		return response_error("GET string too short", client_opts);
 	}
 
@@ -108,19 +109,19 @@ std::string worker::work(const std::string &input, std::string &ip, uint16_t &ip
 	// If that is the case, we use the default hash (set in configuration), to keep track of anonymous traffic.
 	// If the user doesn't exist in the database, it should be created, otherwise the tracker will still give a error.
 	if (!anonymous) {
-		if (input[37] != '/') {
-			// just handle robots.txt if announce is malformed.
-			// robots.txt requested?
-			if(input[11] == '.')
-				return "User-agent: *\nDisallow: /";
-			return response_error("Malformed announce", client_opts);
-		}
+	if (input[37] != '/') {
+	    // just handle robots.txt if announce is malformed.
+		// robots.txt requested?
+		if(input[11] == '.')
+			 return "User-agent: *\nDisallow: /";
+		return response_error("Malformed announce", client_opts);
+	}
 
-		for (; pos < 37; pos++) {
-			passkey.push_back(input[pos]);
-		}
+	for (; pos < 37; pos++) {
+		passkey.push_back(input[pos]);
+	}
 
-		pos = 38;
+	pos = 38;
 	} else {
 		if (input[37] != '/') {
 			if(input[11] == '.')
@@ -274,7 +275,8 @@ std::string worker::work(const std::string &input, std::string &ip, uint16_t &ip
 	if (action == REPORT) {
 		if (passkey == report_password) {
 			std::lock_guard<std::mutex> ul_lock(db->user_list_mutex);
-			return report(params, users_list, domains_list, client_opts);
+			std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
+			return report(params, torrents_list, users_list, domains_list, client_opts);
 		} else {
 			return response_error("Authentication failure", client_opts);
 		}
@@ -379,13 +381,23 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 		sitewide_doubleseed = true;
 	}
 
+	// Filter shitty clients here
 	params_type::const_iterator peer_id_iterator = params.find("peer_id");
+	params_type::const_iterator user_agent_iterator =  headers.find("user-agent");
 	if (peer_id_iterator == params.end()) {
 		return response_error("No peer ID", client_opts);
 	}
 	const std::string peer_id = hex_decode(peer_id_iterator->second);
 	if (peer_id.length() != 20) {
 		return response_error("Invalid peer ID", client_opts);
+	}
+
+	if (user_agent_iterator == headers.end()) {
+		return response_error("Anonymous client", client_opts);
+	}
+	const std::string user_agent = user_agent_iterator->second;
+	if (user_agent.substr(0, 6) == "Deluge" && peer_id.substr(0, 3) != "-DE") {
+		return response_error("Anonymous client", client_opts);
 	}
 
 	std::unique_lock<std::mutex> wl_lock(db->blacklist_mutex);
@@ -551,7 +563,12 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 			if (sit != tor.tokened_users.end()) {
 				//expire_token = true;
 				std::stringstream record;
-				record << '(' << userid << ',' << tor.id << ',' << downloaded_change << ',' << uploaded_change << ')';
+				record << '('
+									<< userid << ','
+									<< tor.id << ','
+									<< downloaded_change << ','
+									<< uploaded_change
+							 << ')';
 				std::string record_str = record.str();
 				db->record_token(record_str);
 			}
@@ -572,9 +589,19 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 				uploaded_change *= 2;
 			}
 
+			if (sit->second.free_leech < now && sit->second.double_seed < now) {
+				tor.tokened_users.erase(userid);
+			}
+
 			if (uploaded_change || downloaded_change || real_uploaded_change || real_downloaded_change) {
 				std::stringstream record;
-				record << '(' << userid << ',' << uploaded_change << ',' << downloaded_change << ',' << real_uploaded_change << ',' << real_downloaded_change << ')';
+				record << '('
+									<< userid << ','
+									<< uploaded_change << ','
+									<< downloaded_change << ','
+									<< real_uploaded_change << ','
+									<< real_downloaded_change
+							 << ')';
 				std::string record_str = record.str();
 				db->record_user(record_str);
 			}
@@ -589,41 +616,47 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 
 	auto param_ip = params.find("ip");
 	if (param_ip != params.end()) {
+		std::string ip = param_ip->second;
 		struct addrinfo hint, *res = NULL;
 		memset(&hint, 0, sizeof hint);
 		hint.ai_family = PF_UNSPEC;
 		hint.ai_flags = AI_NUMERICHOST;
-		getaddrinfo(param_ip->second.c_str(), NULL, &hint, &res);
-		if(res->ai_family == AF_INET) {
-			ipv4 = param_ip->second;
-		} else if (res->ai_family == AF_INET6) {
-			ipv6 = param_ip->second;
+		int err = getaddrinfo(ip.c_str(), NULL, &hint, &res);
+		if (err != 0) {
+			syslog(trace) << "Error parsing IP parameter from announce: "
+			<< param_ip->second << " " << gai_strerror(err);
+		} else {
+			if(res->ai_family == AF_INET) {
+				ipv4 = param_ip->second;
+			} else if (res->ai_family == AF_INET6) {
+				ipv6 = param_ip->second;
+			}
+			freeaddrinfo(res);
 		}
-		freeaddrinfo(res);
 	}
 
 	if (!real_ip_header.empty()) {
 		auto header_ip = headers.find(real_ip_header);
-		if (header_ip != headers.end()) {
-			std::string ip = header_ip->second;
-			ip = ip.substr(0, ip.find(','));
-			struct addrinfo hint, *res = NULL;
-			memset(&hint, 0, sizeof hint);
-			hint.ai_family = PF_UNSPEC;
-			hint.ai_flags = AI_NUMERICHOST;
-			int err = getaddrinfo(ip.c_str(), NULL, &hint, &res);
-			if (err != 0) {
+	    if (header_ip != headers.end()) {
+		    std::string ip = header_ip->second;
+		    ip = ip.substr(0, ip.find(','));
+		    struct addrinfo hint, *res = NULL;
+		    memset(&hint, 0, sizeof hint);
+		    hint.ai_family = PF_UNSPEC;
+		    hint.ai_flags = AI_NUMERICHOST;
+		    int err = getaddrinfo(ip.c_str(), NULL, &hint, &res);
+		    if (err != 0) {
 				syslog(trace) << "Error parsing " << real_ip_header << " header: "
-							  << header_ip->second << " " << gai_strerror(err);
-			} else {
-				if (res->ai_family == AF_INET) {
-					ipv4 = ip;
-					public_ipv4 = ip;
-				} else if (res->ai_family == AF_INET6) {
-					ipv6 = ip;
-					public_ipv6 = ip;
-				}
-				freeaddrinfo(res);
+			    << header_ip->second << " " << gai_strerror(err);
+		    } else {
+			    if(res->ai_family == AF_INET) {
+				    ipv4 = ip;
+				    public_ipv4=ip;
+			    } else if (res->ai_family == AF_INET6) {
+				    ipv6 = ip;
+				    public_ipv6=ip;
+			    }
+			    freeaddrinfo(res);
 			}
 		}
 	}
@@ -712,9 +745,9 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 	p->visible = peer_is_visible(u, p);
 
 	// Add peer data to the database
-	std::stringstream record;
 	if (peer_changed) {
-		record << '(' << userid << ',' << tor.id << ',' << active << ','
+		std::stringstream record;
+		record << userid << ',' << tor.id << ',' << active << ','
 		       << uploaded << ',' << downloaded << ',' << upspeed << ',' << downspeed << ','
 		       << left << ',' << corrupt << ',' << (cur_time - p->first_announced) << ','
 		       << p->first_announced << ',' << p->last_announced << ',' << p->announces << ',';
@@ -730,15 +763,18 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 
 		db->record_peer(record_str, record_ipv4, record_ipv6, port, peer_id, headers["user-agent"]);
 	} else {
-		record << '(' << userid << ',' << tor.id << ',' << (cur_time - p->first_announced)
+		std::stringstream record;
+		record << userid << ',' << tor.id << ',' << (cur_time - p->first_announced)
 		       << ',' << p->last_announced << ',' << p->announces << ',';
 		std::string record_str = record.str();
 		db->record_peer(record_str, peer_id);
 	}
 
 	if (real_uploaded_change > 0 || real_downloaded_change > 0) {
-		record.str("");
-		record << '(' << userid << ',' << real_downloaded_change << ',' << left << ',' << real_uploaded_change << ',' << upspeed << ',' << downspeed << ',' << (cur_time - p->first_announced);
+		std::stringstream record;
+		record << userid << ',' << real_downloaded_change << ',' << left << ','
+					 << real_uploaded_change << ',' << upspeed << ',' << downspeed << ','
+					 << (cur_time - p->first_announced);
 		std::string record_str = record.str();
 		db->record_peer_hist(record_str, peer_id, ipv4, ipv6, tor.id);
 	}
@@ -765,7 +801,6 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 		update_torrent = true;
 		tor.completed++;
 
-		std::stringstream record;
 		std::string record_ipv4, record_ipv6;
 		if (u->is_protected()) {
 			record_ipv4 = "";
@@ -774,7 +809,8 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 			record_ipv4 = ipv4;
 			record_ipv6 = ipv6;
 		}
-		record << '(' << userid << ',' << tor.id << ',' << cur_time;
+		std::stringstream record;
+		record << userid << ',' << tor.id << ',' << cur_time;
 		std::string record_str = record.str();
 		db->record_snatch(record_str, record_ipv4, record_ipv6);
 
@@ -899,7 +935,7 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 
 				// Only show IPv6 peers to other IPv6 peers
 				if ((!p->ipv6.empty()) && (!i->second.ipv6_port.empty()) &&
-					opts->get_bool("EnableIPv6Tracker") && i->second.user->track_ipv6()) {
+				     opts->get_bool("EnableIPv6Tracker") && i->second.user->track_ipv6()) {
 					peers6.append(i->second.ipv6_port);
 					found_peers++;
 				} else if (!i->second.ipv4_port.empty()) {
@@ -1008,7 +1044,13 @@ std::string worker::announce(const std::string &input, torrent &tor, user_ptr &u
 		tor.last_flushed = cur_time;
 
 		std::stringstream record;
-		record << '(' << tor.id << ',' << tor.seeders.size() << ',' << tor.leechers.size() << ',' << snatched << ',' << tor.balance << ')';
+		record << '('
+							<< tor.id << ','
+							<< tor.seeders.size() << ','
+					 		<< tor.leechers.size() << ','
+							<< snatched << ','
+					 		<< tor.balance
+					 << ')';
 		std::string record_str = record.str();
 		db->record_torrent(record_str);
 	}
@@ -1108,15 +1150,26 @@ std::string worker::update(params_type &params, client_opts_t &client_opts) {
 		info_hash = hex_decode(info_hash);
 		std::lock_guard<std::mutex> tl_lock(db->torrent_list_mutex);
 		auto i = torrents_list.find(info_hash);
+
+		// Torrent may have been added already with a failed upload, check the
+		// torrents hashmap to see if it exists and if not add it.
 		if (i == torrents_list.end()) {
 			t = &torrents_list[info_hash];
-			t->id = strtoint32(params["id"]);
-			t->balance = 0;
-			t->completed = 0;
-			t->last_selected_seeder = "";
 		} else {
 			t = &i->second;
 		}
+
+		t->id = strtoint32(params["id"]);
+		t->completed = 0;
+		t->paused = 0;
+		t->balance = 0;
+		t->last_flushed = 0;
+		t->seeders.clear();
+		t->leechers.clear();
+		t->last_selected_seeder = "";
+		t->last_selected_leecher = "";
+		t->tokened_users.clear();
+
 		if (params["freetorrent"] == "0") {
 			t->free_torrent = NORMAL;
 		} else if (params["freetorrent"] == "1") {
@@ -1521,7 +1574,11 @@ void worker::reap_peers() {
 		}
 		if (reaped_this && torrent->second.seeders.empty() && torrent->second.leechers.empty()) {
 			std::stringstream record;
-			record << '(' << torrent->second.id << ",0,0,0," << torrent->second.balance << ')';
+			record << '('
+								<< torrent->second.id << ','
+								<< "0,0,0,"
+								<< torrent->second.balance
+						 << ')';
 			std::string record_str = record.str();
 			db->record_torrent(record_str);
 			cleared_torrents++;

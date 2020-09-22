@@ -1,6 +1,8 @@
 #include <cerrno>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/resource.h>
+#include <sys/capability.h>
 #include <netinet/in.h>
 #include <netdb.h>
 
@@ -24,6 +26,9 @@ connection_mother::connection_mother(worker * worker_obj, site_comm * sc_obj, sc
 	// Handle config stuff first
 	load_config();
 
+	// Check for open file limits
+	set_rlimit();
+
 	if (create_listen_socket() == RESULT_ERR) exit(EXIT_FAILURE);
 
 	for (const int listen_socket: listen_sockets) {
@@ -33,13 +38,14 @@ connection_mother::connection_mother(worker * worker_obj, site_comm * sc_obj, sc
 		listen_event->start(listen_socket, ev::READ);
 		listen_events.insert(std::pair<int, ev::io*>(listen_socket, listen_event));
 	}
+
 	// Create libev timer
 	schedule_event.set<schedule, &schedule::handle>(sched);
 	schedule_event.start(sched->schedule_interval, sched->schedule_interval); // After interval, every interval
 }
 
 void connection_mother::load_config() {
-	listen_port	= conf->get_uint("listen_port");
+	listen_port	       = conf->get_uint("listen_port");
 	listen_hosts       = split(conf->get_str("listen_host"), ' ');
 	max_connections    = conf->get_uint("max_connections");
 	max_middlemen      = conf->get_uint("max_middlemen");
@@ -55,6 +61,7 @@ void connection_mother::reload_config() {
 	std::vector<std::string> old_listen_hosts = listen_hosts;
 	std::vector<int> old_listen_sockets = listen_sockets;
 	load_config();
+	set_rlimit();
 	if (old_listen_port != listen_port) {
 		syslog(info) << "Changing listen port from " << old_listen_port << " to " << listen_port;
 
@@ -80,8 +87,8 @@ void connection_mother::reload_config() {
 			}
 		} else {
 			syslog(error) << "Couldn't create new listen socket when reloading config";
-		}
 	}
+}
 
 	if (old_listen_hosts != listen_hosts) {
 		std::ostringstream old_imploded, new_imploded;
@@ -109,8 +116,8 @@ void connection_mother::reload_config() {
 				listen_event->start(listen_socket, ev::READ);
 				listen_events.insert(std::pair<int, ev::io*>(listen_socket, listen_event));
 			}
-		} else {
-			syslog(error) << "Couldn't create new listen socket when reloading config";
+	} else {
+			syslog(fatal) << "Couldn't create new listen socket when reloading config";
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -118,6 +125,49 @@ void connection_mother::reload_config() {
 	if (old_max_connections != max_connections) {
 		for (const int listen_socket: listen_sockets) {
 			listen(listen_socket, max_connections);
+			}
+	}
+}
+
+void connection_mother::set_rlimit() {
+	rlimit lim;
+	int cap;
+	int err;
+
+	err = getrlimit(RLIMIT_NOFILE, &lim);
+
+	if (err == -1) {
+		syslog(fatal) << "Config failed, errno " << errno << ": " << strerror(errno);
+		exit(EXIT_FAILURE);
+	}
+
+	if (lim.rlim_max < (max_connections + 100)) {
+		cap = cap_get_bound(CAP_SYS_RESOURCE);
+		if (cap == 1) {
+			lim.rlim_max = max_connections + 100;
+			lim.rlim_cur = max_connections + 100;
+		} else {
+			max_connections = lim.rlim_max;
+			syslog(info) << "Max connections reduced to " << max_connections;
+			if (cap == 0) {
+				lim.rlim_cur = lim.rlim_max;
+			}
+		}
+		err = setrlimit(RLIMIT_NOFILE, &lim);
+		if (err == -1) {
+			syslog(fatal) << "Config failed, errno " << errno << ": " << strerror(errno);
+			exit(EXIT_FAILURE);
+		} else {
+			syslog(info) << "Increased open file limit to " << lim.rlim_cur;
+		}
+	} else if(lim.rlim_cur < (max_connections + 100)) {
+		lim.rlim_cur = max_connections + 100;
+		err = setrlimit(RLIMIT_NOFILE, &lim);
+		if (err == -1) {
+			syslog(fatal) << "Config failed, errno " << errno << ": " << strerror(errno);
+			exit(EXIT_FAILURE);
+		} else {
+			syslog(info) << "Increased open file soft limit to " << lim.rlim_cur;
 		}
 	}
 }
@@ -126,16 +176,16 @@ int connection_mother::socket_set_non_block(int fd) {
 	// Set non-blocking
 	int flags = fcntl(fd, F_GETFL);
 	if (flags == -1) {
-		syslog(info) << "Could not get socket flags: " << strerror(errno);
+		syslog(fatal) << "Could not get socket flags: " << strerror(errno);
 		return RESULT_ERR;
 	}
 	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-		syslog(info) << "Could not set non-blocking: " << strerror(errno);
+		syslog(fatal) << "Could not set non-blocking: " << strerror(errno);
 		return RESULT_ERR;
 	}
 
 	return RESULT_OK;
-}
+	}
 
 int connection_mother::socket_set_reuse_addr(int fd) {
 	int yes = 1;
@@ -169,12 +219,12 @@ int connection_mother::socket_listen(int s, struct sockaddr *address, socklen_t 
 
 	// Listen
 	if (listen(s, backlog) == -1) {
-		syslog(info) << "Listen failed: " << strerror(errno);
+		syslog(fatal) << "Listen failed: " << strerror(errno);
 		return RESULT_ERR;
 	}
 
 	return RESULT_OK;
-}
+	}
 
 int connection_mother::create_tcp_server(unsigned int port, const std::string &ip)
 {
@@ -193,7 +243,7 @@ int connection_mother::create_tcp_server(unsigned int port, const std::string &i
 		if (new_listen_socket == -1) {
 			syslog(fatal) << "Failed to open socket.";
 			return RESULT_ERR;
-		}
+	}
 
 		char ip_value[INET6_ADDRSTRLEN];
 
@@ -323,7 +373,7 @@ int connection_mother::create_listen_socket()
 }
 
 const void connection_mother::run() {
-	syslog(info) << "Sockets up on port " << listen_port << ", starting event loop!";
+	syslog(info) << "Sockets up, starting event loop!";
 	ev_loop(ev_default_loop(0), 0);
 }
 
@@ -345,8 +395,8 @@ connection_mother::~connection_mother()
 	}
 
 	for (const int listen_socket: listen_sockets) {
-		close(listen_socket);
-	}
+	close(listen_socket);
+}
 }
 
 
@@ -363,7 +413,7 @@ connection_middleman::connection_middleman(int &listen_socket, worker * new_work
 	client_opts = {false, false, false, false};
 	connect_sock = accept(listen_socket, NULL, NULL);
 	if (connect_sock == -1) {
-		syslog(info) << "Accept failed, errno " << errno << ": " << strerror(errno);
+		syslog(error) << "Accept failed, errno " << errno << ": " << strerror(errno);
 		delete this;
 		return;
 	}
@@ -427,7 +477,7 @@ void connection_middleman::handle_read(ev::io &watcher, int events_flags) {
 			uint16_t ip_ver = 0;
 			getpeername(connect_sock, (struct sockaddr *) &client_addr, &addr_len);
 			std::string ip_str;
-			if (client_addr.ss_family == AF_INET) {
+			if(client_addr.ss_family == AF_INET) {
 				struct sockaddr_in *s = (struct sockaddr_in *)&client_addr;
 				ip_ver = 4;
 				inet_ntop(AF_INET, (void*)&(s->sin_addr), ip, sizeof(ip));
@@ -442,7 +492,7 @@ void connection_middleman::handle_read(ev::io &watcher, int events_flags) {
 				if (ip_str.substr(0, 7) == "::ffff:") {
 					ip_ver = 4;
 					ip_str = ip_str.substr(7);
-				}
+			}
 			} else if (client_addr.ss_family == AF_UNIX) {
 				ip_str = ""; // Empty, should be taken from additional headers
 			} else {

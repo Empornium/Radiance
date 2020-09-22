@@ -1,3 +1,13 @@
+-- 1.1.6 (2020-09-22)
+Fix UNIX socket handling
+Swap sleep with sleep_for
+Update DB documentation
+Add NGINX config example
+Add configuration option for DB retry timed
+Fix handling of invalid IPs
+Minor Spelling fixes
+Add report endpoint for torrents
+
 -- 1.1.5 (2019-04-05)
 Support MariaDB library paths
 Fix peer counting statistics

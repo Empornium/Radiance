@@ -40,6 +40,7 @@ THE WORKER
 class connection_mother {
 	private:
 		void load_config();
+		void set_rlimit();
 		int socket_set_non_block(int fd);
 		int socket_set_reuse_addr(int fd);
 		int socket_listen(int s, struct sockaddr *address, socklen_t address_len, int backlog);

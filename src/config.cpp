@@ -103,6 +103,7 @@ void settings::init() {
 	add("mysql_password", "");
 	add("mysql_connections", 8u);
 	add("mysql_timeout", 30u);
+	add("mysql_retry", 5u);
 
 	// Site communication
 	add("site_host", "127.0.0.1");
@@ -112,29 +113,28 @@ void settings::init() {
 	add("report_password", "00000000000000000000000000000000");
 
 	// General Control
-	add("readonly", false);
-	add("anonymous", false);
+	add("readonly",        false);
+	add("anonymous",       false);
 	add("anonymous_password", "00000000000000000000000000000000");
-	add("clear_peerlists", true);
-	add("load_peerlists", false);
-	add("peers_history", true);
-	add("files_peers", true);
+	add("clear_peerlists",  true);
+	add("load_peerlists",  false);
+	add("peers_history",    true);
+	add("files_peers",      true);
 	add("snatched_history", true);
-	add("daemonize", false);
-	add("syslog_path", "off");
-	add("syslog_level", "info");
-	add("pid_file", "./radiance.pid");
-	add("daemon_user", "root");
+	add("daemonize",       false);
+	add("syslog_path",     "off");
+	add("syslog_level",    "info");
+	add("pid_file",        "./radiance.pid");
 }
 
 void options::init() {
-	add("SitewideFreeleechMode", "off");
-	add("SitewideFreeleechStartTime", 0u);
-	add("SitewideFreeleechEndTime", 0u);
-	add("SitewideDoubleseedMode", "off");
-	add("SitewideDoubleseedStartTime", 0u);
-	add("SitewideDoubleseedEndTime", 0u);
-	add("EnableIPv6Tracker", false);
+	add("SitewideFreeleechMode",        "off");
+	add("SitewideFreeleechStartTime",   0u);
+	add("SitewideFreeleechEndTime",     0u);
+	add("SitewideDoubleseedMode",       "off");
+	add("SitewideDoubleseedStartTime",  0u);
+	add("SitewideDoubleseedEndTime",    0u);
+	add("EnableIPv6Tracker",            false);
 }
 
 confval * config::get(const std::string &setting_name) {
